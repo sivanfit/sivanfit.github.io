@@ -3443,14 +3443,17 @@ function watchMeasurements(token){
   measureCache = null;
   renderMeasureInbox();
   if (t === "" || cloudMode !== "on" || !fbDb) return;
+  /* מיון עולה לפי מזהה המסמך (האינדקס המובנה) והיפוך ב-JS — מיון יורד דורש אינדקס ב-Firestore
+     ונכשל חי ב-"failed-precondition" (אימות 23.8.2026) */
   measureUnsub = fbDb.collection("responses").doc(t).collection("measurements")
-    .orderBy(firebase.firestore.FieldPath.documentId(), "desc").limit(60)
+    .orderBy(firebase.firestore.FieldPath.documentId()).limit(60)
     .onSnapshot(function(snap){
       var list = [];
       snap.forEach(function(doc){
         var norm = normalizeMeasurementDoc(doc.data ? doc.data() : null, doc.id);
         if (norm) list.push({norm:norm, ref:doc.ref});
       });
+      list.reverse();   /* החדש ראשון */
       measureCache = list;
       renderMeasureInbox();
       refreshMorningPending(t, list.length);
@@ -7281,8 +7284,11 @@ function refreshMealsTrack(force){
   mealsTrackToken = token;
   mealsTrackDays = null;
   renderMealsTrack();
+  /* 23.8.2026 (אימות חי): מיון יורד לפי documentId דרש אינדקס ב-Firestore ונכשל בשקט מאז 17.8 —
+     עכשיו מיון עולה מהיום ה-45 האחרון (האינדקס המובנה, startAt על מזהה המסמך) והיפוך ב-JS */
+  var fromDay = addDaysISO(todayISO(), -45);
   fbDb.collection("responses").doc(token).collection("days")
-    .orderBy(firebase.firestore.FieldPath.documentId(), "desc").limit(31).get()
+    .orderBy(firebase.firestore.FieldPath.documentId()).startAt(fromDay).limit(46).get()
     .then(function(snap){
       mealsTrackLoading = false;
       var days = [];
@@ -7292,6 +7298,7 @@ function refreshMealsTrack(force){
           if (norm && norm.meals.length) days.push({day:doc.id, meals:norm.meals});
         });
       }
+      days.reverse();   /* החדש ראשון, כמו קודם */
       mealsTrackDays = days;
       renderMealsTrack();
     }, function(){

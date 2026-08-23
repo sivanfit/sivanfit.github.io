@@ -1367,12 +1367,14 @@ function loadPending(cols){
     if (lid) labels[lid] = textOf(lc.label) || lid;
   }
   try {
+    /* מיון עולה לפי מזהה המסמך (האינדקס המובנה) והיפוך ב-JS — מיון יורד דורש אינדקס ב-Firestore
+       ונכשל חי ב-"failed-precondition" (אימות 23.8.2026) */
     PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("measurements")
-      .orderBy(firebase.firestore.FieldPath.documentId(), "desc").limit(20).get().then(function(snap){
+      .orderBy(firebase.firestore.FieldPath.documentId()).limit(20).get().then(function(snap){
       if (PORTAL_TOKEN !== tok) return;
       clear(list);
       MEAS_PENDING_DAYS = {};
-      var docs = (snap && snap.docs) ? snap.docs : [];
+      var docs = (snap && snap.docs) ? snap.docs.slice().reverse() : [];   /* החדש ראשון */
       var shown = 0;
       for (var i=0; i<docs.length; i++){
         var doc = docs[i];
