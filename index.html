@@ -554,6 +554,11 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
 /* צ'יפ שנושא טקסט חופשי (כתובת מייל) — nowrap של .chip הוציא כתובות ארוכות
    מגבולות כרטיס השיתוף במסך טלפון (23.8.2026) */
 .chip.chip-wrap{white-space:normal; word-break:break-all; text-align:start}
+/* תיבת המדידות הממתינות (23.8) */
+.meas-inbox-row{border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; display:flex; flex-direction:column; gap:8px; background:var(--surface-2)}
+.meas-inbox-head{font-weight:700}
+.meas-warn{color:var(--warn); font-size:12.5px; font-weight:700}
+.meas-target{font:inherit; font-size:14px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface); color:var(--text)}
 /* ==== SAND-SERIF-END ==== */
 
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
@@ -957,6 +962,16 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <button class="btn btn-ghost btn-sm" id="btnMealsTrackRefresh" type="button">רענן</button>
       </div>
       <div class="stack" id="mealsTrackBody"></div>
+    </div>
+
+    <!-- מדידות שהלקוח/ה שלח/ה (23.8.2026, תוספת B) — ממתינות לאישור; אישור → setTrackCell, דחייה → מחיקה -->
+    <div class="card stack hidden" id="measureInboxCard">
+      <div>
+        <span class="eyebrow">מילוי עצמי</span>
+        <h2 class="card-title">מדידות שהלקוח/ה שלח/ה — ממתינות לאישור</h2>
+      </div>
+      <p class="lede">אישור מכניס את הערכים לטבלת המעקב שלמטה, בשורה שתבחרי; דחייה מוחקת את המדידה.</p>
+      <div class="stack" id="measureInboxBody"></div>
     </div>
 
     <div class="card stack hidden" id="trackControlsCard">
@@ -2566,15 +2581,70 @@ function subscriptionStatus(subscription, todayISO){
   return {end:end, daysLeft:left, level:level, text:text};
 }
 
+/* ===== מדידות שהלקוח/ה שולח/ת מהפורטל (23.8.2026, תוספת B) =====
+   הפורטל כותב responses/{token}/measurements/{YYYY-MM-DD} = {v,updatedAt,values[,note]},
+   וסיוון מאשרת או דוחה. הכול כאן טהור: התאמת יום המדידה לשורה בטבלה, ונורמליזציה
+   סלחנית של מסמך שמגיע מבחוץ (בדיוק כמו normalizeResponseDoc). */
+
+/* מספר הערכים המרבי במדידה אחת = TRACK_MAX_COLUMNS; משוכפל גם בחוק ה-Firestore */
+var MEASUREMENT_MAX_VALUES = 14;
+
+/* השורה בטבלת המעקב הקרובה ביותר ליום המדידה; תיקו → התאריך המוקדם יותר.
+   אין רשימה תקינה / אין תאריך תקין → מחרוזת ריקה */
+function nearestTrackingDate(dates, iso){
+  if (!Array.isArray(dates)) return "";
+  if (!parseISOParts(iso)) return "";
+  var best = "", bestDist = -1;
+  for (var i=0;i<dates.length;i++){
+    var d = dates[i];
+    if (!parseISOParts(d)) continue;
+    var diff = daysBetweenISO(d, iso);
+    if (diff === null) continue;
+    var dist = diff < 0 ? -diff : diff;
+    if (bestDist < 0 || dist < bestDist){ bestDist = dist; best = d; continue; }
+    /* תיקו: שומרים את המוקדם (daysBetweenISO(d, best) חיובי = best מאוחר מ-d) */
+    if (dist === bestDist && daysBetweenISO(d, best) > 0) best = d;
+  }
+  return best;
+}
+
+/* מסמך מדידה בודד → {day, updatedAt, values, note}; בלי ולו ערך אחד ששרד → null */
+function normalizeMeasurementDoc(raw, dayId){
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (typeof dayId !== "string" || !parseISOParts(dayId)) return null;
+  var values = {}, kept = 0;
+  var src = (raw.values && typeof raw.values === "object" && !Array.isArray(raw.values)) ? raw.values : null;
+  if (src){
+    var keys = Object.keys(src);
+    for (var i=0;i<keys.length && kept < MEASUREMENT_MAX_VALUES;i++){
+      var k = keys[i];
+      if (typeof k !== "string" || k === "" || k.length > 40) continue;
+      var v = src[k], s = null;
+      if (typeof v === "string") s = v.trim();
+      else if (typeof v === "number" && isFinite(v)) s = String(v);
+      if (s === null || s === "") continue;
+      if (s.length > 80) s = s.slice(0, 80);
+      values[k] = s;
+      kept++;
+    }
+  }
+  if (kept === 0) return null;
+  var note = (typeof raw.note === "string") ? raw.note.trim() : "";
+  if (note.length > 300) note = note.slice(0, 300);
+  return {day:dayId, updatedAt:(typeof raw.updatedAt === "string") ? raw.updatedAt : "", values:values, note:note};
+}
+
 /* ===== מסך הבוקר (20.8.2026) =====
    תמונת המצב היומית של כל הלקוחות בטאב הלקוחות. הסיווג טהור: שכבת ה-UI מכינה
    מפת מילוי פר-לקוח מהענן ({lastDay: יום השמירה האחרון לפי שעון מקומי,
-   overMeals: מספר ארוחות חורגות}) — וכאן רק ממיינים לקבוצות תצוגה */
-function morningSummary(clients, fillById, tokensById, todayISO, yesterdayISO){
-  var out = {filledToday:[], filledYesterday:[], notFilled:[], overBudget:[], subsEnding:[], noMenu:[], noLink:[]};
+   overMeals: מספר ארוחות חורגות}) — וכאן רק ממיינים לקבוצות תצוגה.
+   pendingById (רשות, 23.8.2026) = {clientId: מספר מדידות שממתינות לאישור} */
+function morningSummary(clients, fillById, tokensById, todayISO, yesterdayISO, pendingById){
+  var out = {filledToday:[], filledYesterday:[], notFilled:[], overBudget:[], subsEnding:[], noMenu:[], noLink:[], pendingMeasurements:[]};
   var list = Array.isArray(clients) ? clients : [];
   var fills = (fillById && typeof fillById === "object" && !Array.isArray(fillById)) ? fillById : {};
   var tokens = (tokensById && typeof tokensById === "object" && !Array.isArray(tokensById)) ? tokensById : {};
+  var pend = (pendingById && typeof pendingById === "object" && !Array.isArray(pendingById)) ? pendingById : {};
   for (var i=0;i<list.length;i++){
     var c = list[i];
     if (!c || typeof c !== "object" || typeof c.id !== "string") continue;
@@ -2594,6 +2664,10 @@ function morningSummary(clients, fillById, tokensById, todayISO, yesterdayISO){
       if (f && typeof f.overMeals === "number" && f.overMeals > 0 &&
           (day === todayISO || day === yesterdayISO)){
         out.overBudget.push({id:c.id, name:entry.name, over:f.overMeals});
+      }
+      var pc = Object.prototype.hasOwnProperty.call(pend, c.id) ? pend[c.id] : null;
+      if (typeof pc === "number" && isFinite(pc) && pc > 0){
+        out.pendingMeasurements.push({id:c.id, name:entry.name, count:pc});
       }
     }
   }
@@ -3338,6 +3412,52 @@ function stopResponseWatch(){
   responseUnsub = null;
   responseTokenWatched = "";
   clientResponseCache = null;
+  stopMeasurementsWatch();
+}
+
+/* ---------- מדידות ממתינות (responses/{token}/measurements, 23.8.2026 — תוספת B) ----------
+   הלקוח/ה מזין/ה משקל והיקפים בפורטל; כאן הן ממתינות לאישור של סיוון לפני שהן
+   נכנסות לטבלת המעקב. measureCache = מערך {norm, ref} או null (עוד לא נטען) */
+var measureUnsub = null, measureTokenWatched = "", measureCache = null;
+/* {יום המדידה: תאריך השורה שסיוון בחרה} — סנאפשוט חדש בונה את הבלוקים מאפס,
+   והמפה מחזירה את הבחירה במקום לקפוץ בחזרה לברירת המחדל (23.8.2026) */
+var measureTargetByDay = {};
+
+function stopMeasurementsWatch(){
+  if (measureUnsub){ try { measureUnsub(); } catch(e){} }
+  measureUnsub = null;
+  measureTokenWatched = "";
+  measureCache = null;
+  measureTargetByDay = {};
+  renderMeasureInbox();   /* 23.8.2026: הכרטיס נסגר מיד ולא נשאר עם מדידות של לקוחה קודמת */
+}
+
+/* מאזין חי (כמו watchClientResponse) — מדידה שנשלחת מהטלפון מופיעה מיד.
+   שגיאה נבלעת בשקט בכוונה: לפני פרסום חוק ה-measurements, permission-denied היה
+   מנתק את סיוון מהענן (אותו תקדים כמו מאזין links) */
+function watchMeasurements(token){
+  var t = (typeof token === "string") ? token : "";
+  if (t === measureTokenWatched){ renderMeasureInbox(); return; }
+  if (measureUnsub){ try { measureUnsub(); } catch(e){} measureUnsub = null; }
+  measureTokenWatched = t;
+  measureCache = null;
+  renderMeasureInbox();
+  if (t === "" || cloudMode !== "on" || !fbDb) return;
+  measureUnsub = fbDb.collection("responses").doc(t).collection("measurements")
+    .orderBy(firebase.firestore.FieldPath.documentId(), "desc").limit(60)
+    .onSnapshot(function(snap){
+      var list = [];
+      snap.forEach(function(doc){
+        var norm = normalizeMeasurementDoc(doc.data ? doc.data() : null, doc.id);
+        if (norm) list.push({norm:norm, ref:doc.ref});
+      });
+      measureCache = list;
+      renderMeasureInbox();
+      refreshMorningPending(t, list.length);
+    }, function(){
+      measureCache = [];
+      renderMeasureInbox();
+    });
 }
 
 /* נקרא מ-refreshShareCard עם הטוקן של הלקוח הפעיל ("" כשאין) —
@@ -3807,10 +3927,18 @@ function pushCatalogDoc(){
 function purgeResponses(token){
   if (!fbDb || !token) return;
   var ref = fbDb.collection("responses").doc(token);
-  ref.collection("days").limit(300).get().then(function(snap){
+  /* 23.8.2026: לכל קריאה מטפל-דחייה משלה. בלעדיו קריאה אחת שנדחתה (חוק שעוד לא פורסם,
+     אוסף חסום) הייתה מפילה את כל ה-Promise.all — כלומר גם המחיקות של השני וגם ref.delete() */
+  Promise.all([
+    ref.collection("days").limit(300).get().then(null, function(){ return null; }),
+    ref.collection("measurements").limit(300).get().then(null, function(){ return null; })   /* גם המדידות שממתינות לאישור (23.8.2026) */
+  ]).then(function(snaps){
     var ops = [];
-    if (snap && typeof snap.forEach === "function"){
-      snap.forEach(function(doc){ ops.push(doc.ref.delete()); });
+    for (var i=0;i<snaps.length;i++){
+      var snap = snaps[i];
+      if (snap && typeof snap.forEach === "function"){
+        snap.forEach(function(doc){ ops.push(doc.ref.delete()); });
+      }
     }
     ops.push(ref.delete());
     return Promise.all(ops);
@@ -5092,6 +5220,7 @@ function refreshShareCard(){
   $("shareLocalNote").classList.toggle("hidden", cloudOn);
   var token = (cloudOn && c) ? shareTokenOf(c.id) : "";
   watchClientResponse(token);
+  watchMeasurements(token);   /* 23.8.2026: תיבת המדידות עוקבת אחרי הלקוח/ה הפעיל/ה בכל אירוע ענן */
   $("shareLinkOut").value = token ? (SHARE_LINK_BASE + token) : "";
   $("btnPublishShare").classList.toggle("hidden", token !== "");
   $("btnCopyShareLink").classList.toggle("hidden", token === "");
@@ -6922,6 +7051,7 @@ function renderTrackingTab(){
   $("trackControlsCard").classList.toggle("hidden", !has);
   $("trackTableCard").classList.toggle("hidden", !t);
   watchClientResponse((cloudMode === "on" && c) ? shareTokenOf(c.id) : "");
+  watchMeasurements((cloudMode === "on" && c) ? shareTokenOf(c.id) : "");
   refreshMealsTrack(false);
   closeNewColRow();
 
@@ -6964,6 +7094,170 @@ $("trackNewColName").addEventListener("keydown", function(e){
   if (e.key === "Enter"){ e.preventDefault(); addTrackColumn(); }
 });
 fillStepOptions("week", "1");
+
+/* ---------- תיבת המדידות הממתינות (23.8.2026, תוספת B) ----------
+   כל מדידה = כרטיסון: מה נמדד, לאיזו שורה בטבלה זה ייכנס, אזהרה לפני דריסת ערך קיים,
+   ואז "אשר והכנס לטבלה" (setTrackCell + מחיקת המסמך) או "דחה" (מחיקה בלבד).
+   כל טקסט שמגיע מהלקוח/ה נכתב ב-textContent בלבד — לעולם לא innerHTML. */
+
+/* תווית העמודה לפי מזהה; עמודה שכבר לא קיימת בטבלה → null (מוצגת אבל לא מאושרת) */
+function measureColumnLabel(columns, colId){
+  var list = Array.isArray(columns) ? columns : [];
+  for (var i=0;i<list.length;i++){
+    if (list[i] && list[i].id === colId){
+      return (typeof list[i].label === "string" && list[i].label !== "") ? list[i].label : colId;
+    }
+  }
+  return null;
+}
+
+function renderMeasureInbox(){
+  var card = $("measureInboxCard"), body = $("measureInboxBody");
+  if (!card) return;
+  var c = getActiveClient(null);
+  /* 23.8.2026: הקאש שייך לטוקן שהמאזין רשום עליו. בלי השער הזה, החלפת לקוח/ה לפני
+     שהמאזין החדש החזיר סנאפשוט הייתה מציגה את המדידות של הקודמת תחת השם החדש */
+  var mine = !!c && (cloudMode !== "on" || shareTokenOf(c.id) === measureTokenWatched);
+  var show = !!(mine && cloudMode === "on" && measureCache && measureCache.length);
+  card.classList.toggle("hidden", !show);
+  if (!body) return;
+  body.textContent = "";
+  if (!show) return;
+  for (var i=0;i<measureCache.length;i++) body.appendChild(buildMeasureBlock(measureCache[i], c));
+}
+
+function buildMeasureBlock(item, c){
+  var norm = item.norm, i;
+  var t = c.tracking || null;
+  /* בלי טבלה עדיין — התוויות מעמודות ברירת-המחדל, כדי שהצ'יפים ייקראו יפה (אין מה לאשר ממילא) */
+  var columns = t ? t.columns : TRACKING_DEFAULT_COLUMNS;
+  var row = el("div","meas-inbox-row");
+  var sentDay = localDayOfISO(norm.updatedAt);
+  row.appendChild(el("div","meas-inbox-head",
+    "נמדד ב-" + isoDateText(norm.day) + (sentDay ? " · נשלח " + isoDateText(sentDay) : "")));
+
+  var keys = Object.keys(norm.values), approvable = [];
+  var chips = el("div","row-flex");
+  for (i=0;i<keys.length;i++){
+    var label = measureColumnLabel(columns, keys[i]);
+    if (label === null){
+      chips.appendChild(el("span","chip chip-neutral",(t ? "(עמודה שנמחקה) " : "") + keys[i] + ": " + norm.values[keys[i]]));
+    } else {
+      approvable.push({id:keys[i], label:label, value:norm.values[keys[i]]});
+      chips.appendChild(el("span","chip chip-neutral", label + ": " + norm.values[keys[i]]));
+    }
+  }
+  row.appendChild(chips);
+  if (norm.note) row.appendChild(el("p","lede","הערה: " + norm.note));
+
+  var sel = null;
+  if (!t){
+    row.appendChild(el("p","note-line","אין טבלת מעקב — צרי טבלה למטה ואז אשרי"));
+  } else {
+    var dates = trackingDates(t.startDate, t.unit, t.step, t.count);
+    var pickRow = el("div","row-flex");
+    pickRow.appendChild(el("span","lbl","לשורה בטבלה:"));
+    sel = document.createElement("select");
+    sel.className = "meas-target";
+    for (i=0;i<dates.length;i++){
+      var opt = document.createElement("option");
+      opt.value = dates[i];
+      opt.textContent = isoDateText(dates[i]);
+      sel.appendChild(opt);
+    }
+    /* 23.8.2026: בחירה קודמת של סיוון לאותו יום מנצחת את ברירת המחדל — סנאפשוט
+       חדש (מדידה נוספת שנשלחה) לא מחזיר את הסלקט לשורה שהיא כבר שינתה */
+    var picked = Object.prototype.hasOwnProperty.call(measureTargetByDay, norm.day)
+      ? measureTargetByDay[norm.day] : "";
+    var keep = "";
+    for (i=0;i<dates.length;i++){ if (dates[i] === picked){ keep = picked; break; } }
+    var near = keep !== "" ? keep : nearestTrackingDate(dates, norm.day);
+    if (near !== "") sel.value = near;
+    else if (dates.length) sel.value = dates[0];
+    pickRow.appendChild(sel);
+    var hint = el("span","lede","");
+    pickRow.appendChild(hint);
+    row.appendChild(pickRow);
+    var warns = el("div","meas-warns");
+    row.appendChild(warns);
+    (function(selEl, hintEl, warnEl){
+      function sync(){
+        var target = selEl.value;
+        var gap = daysBetweenISO(target, norm.day);
+        var abs = (gap === null) ? 0 : (gap < 0 ? -gap : gap);
+        hintEl.textContent = abs ? ("(הפרש " + (abs === 1 ? "יום אחד" : abs + " ימים") + " מהמדידה)") : "";
+        warnEl.textContent = "";
+        var cur = (t.rows && Object.prototype.hasOwnProperty.call(t.rows, target)) ? t.rows[target] : null;
+        for (var k=0;k<approvable.length;k++){
+          var a = approvable[k];
+          var old = (cur && typeof cur[a.id] === "string") ? cur[a.id] : "";
+          if (old !== "" && old !== a.value){
+            warnEl.appendChild(el("div","meas-warn","⚠ יחליף: " + a.label + " " + old + " → " + a.value));
+          }
+        }
+      }
+      selEl.addEventListener("change", function(){
+        measureTargetByDay[norm.day] = selEl.value;   /* 23.8.2026: זוכרים את הבחירה לסנאפשוט הבא */
+        sync();
+      });
+      sync();
+    })(sel, hint, warns);
+  }
+
+  var btnRow = el("div","row-flex");
+  if (t){
+    var ok = el("button","btn","אשר והכנס לטבלה");
+    ok.type = "button";
+    if (!approvable.length) ok.disabled = true;
+    (function(selEl){
+      ok.addEventListener("click", function(){ approveMeasurement(item, selEl ? selEl.value : ""); });
+    })(sel);
+    btnRow.appendChild(ok);
+  }
+  var no = el("button","btn btn-quiet btn-sm","דחה");
+  no.type = "button";
+  twoStep(no, "דחה", "לדחייה — לחצי שוב", function(){ rejectMeasurement(item); });
+  btnRow.appendChild(no);
+  row.appendChild(btnRow);
+  return row;
+}
+
+/* אישור: הערכים נכנסים לשורה שנבחרה דרך setTrackCell (שכבר דוחף לענן ומפרסם מחדש
+   את מסמך השיתוף), ואז המסמך נמחק כדי שלא יופיע שוב בתיבה */
+function approveMeasurement(item, targetDate){
+  /* 23.8.2026: יציאה שקטה הותירה את סיוון בלי הסבר למה "אשר" לא עשה כלום */
+  if (cloudMode !== "on" || !fbDb){ toast("אין חיבור לענן — התחברי כדי לאשר"); return; }
+  var c = getActiveClient(null);
+  if (!c || !c.tracking) return;
+  if (!parseISOParts(targetDate)){ toast("צריך לבחור שורה בטבלה"); return; }
+  var keys = Object.keys(item.norm.values), wrote = 0, failed = false;
+  for (var i=0;i<keys.length;i++){
+    if (measureColumnLabel(c.tracking.columns, keys[i]) === null) continue;
+    if (setTrackCell(targetDate, keys[i], item.norm.values[keys[i]])) wrote++;
+    else failed = true;
+  }
+  /* 23.8.2026: setTrackCell מחזיר false כשהכתיבה המקומית נכשלה (מכסת אחסון וכו').
+     במקרה כזה אסור למחוק את המסמך — המדידה נשארת בתיבה כדי שאפשר יהיה לנסות שוב */
+  if (failed){ toast("השמירה בדפדפן נכשלה — המדידה נשארת ברשימה"); renderTrackingTab(); return; }
+  if (!wrote){ toast("אין ערך שמתאים לעמודות בטבלה"); return; }
+  item.ref.delete().then(function(){
+    delete measureTargetByDay[item.norm.day];
+    toast("המדידות נכנסו לטבלה ✓");
+    renderTrackingTab();
+  }, function(){
+    toast("המדידה נכנסה לטבלה אבל לא נמחקה מהרשימה — רענני");
+    renderTrackingTab();
+  });
+}
+
+function rejectMeasurement(item){
+  item.ref.delete().then(function(){
+    delete measureTargetByDay[item.norm.day];
+    toast("המדידה נדחתה");
+  }, function(){
+    toast("הדחייה נכשלה — נסי שוב");
+  });
+}
 
 /* ---------- מעקב ארוחות: היסטוריית המילויים היומית של הלקוח/ה (responses/{token}/days) ---------- */
 var mealsTrackToken = null, mealsTrackDays = null, mealsTrackLoading = false;
@@ -7072,16 +7366,32 @@ function fetchMorning(force){
     (function(c){
       var token = shareTokenOf(c.id);
       if (token === "") return;
-      jobs.push(fbDb.collection("responses").doc(token).get().then(function(snap){
-        var norm = (snap && snap.exists) ? normalizeResponseDoc(snap.data()) : null;
-        if (!norm) return null;
-        var over = 0;
-        for (var m=0;m<norm.meals.length;m++){
-          var bs = mealBudgetStatus(norm.meals[m].kcal, norm.meals[m].budget);
-          if (bs && bs.over) over++;
+      var ref = fbDb.collection("responses").doc(token);
+      /* שתי קריאות פר-לקוח/ה: המילוי האחרון + כמה מדידות ממתינות לאישור (23.8.2026) */
+      jobs.push(Promise.all([
+        ref.get().then(function(snap){
+          return (snap && snap.exists) ? normalizeResponseDoc(snap.data()) : null;
+        }, function(){ return null; }),
+        ref.collection("measurements").limit(20).get().then(function(s){
+          /* 23.8.2026: סופרים רק מסמכים שעוברים נרמול — בדיוק אלה שיופיעו בתיבה.
+             s.size היה מונה גם מסמכים פגומים, והצ'יפ בבוקר הבטיח מדידות שאין */
+          var n = 0;
+          if (s && typeof s.forEach === "function"){
+            s.forEach(function(d){ if (normalizeMeasurementDoc(d.data ? d.data() : null, d.id)) n++; });
+          }
+          return n;
+        }, function(){ return 0; })
+      ]).then(function(res){
+        var norm = res[0], over = 0;
+        if (norm){
+          for (var m=0;m<norm.meals.length;m++){
+            var bs = mealBudgetStatus(norm.meals[m].kcal, norm.meals[m].budget);
+            if (bs && bs.over) over++;
+          }
         }
-        return {id:c.id, lastDay:localDayOfISO(norm.updatedAt), overMeals:over};
-      }, function(){ return null; }));
+        /* תמיד מחזירים רשומה — lastDay ריק מתנהג ב-morningSummary כמו "לא מילאה" */
+        return {id:c.id, lastDay: norm ? localDayOfISO(norm.updatedAt) : "", overMeals:over, pending:res[1]};
+      }));
     })(store.clients[ci]);
   }
   Promise.all(jobs).then(function(res){
@@ -7093,8 +7403,24 @@ function fetchMorning(force){
   });
 }
 
-/* שורת קבוצה: תווית + צ'יפ לחיץ לכל לקוח/ה (לחיצה פותחת את הכרטיס) */
-function morningChipRow(wrap, label, items, cls, textFn){
+/* עדכון חי של מונה המדידות הממתינות (נקרא ממאזין ה-measurements) — כדי שהצ'יפ
+   במסך הבוקר יתעדכן מיד אחרי אישור/דחייה, בלי רענון מלא של כל הלקוחות */
+function refreshMorningPending(token, count){
+  if (!morningFills || typeof token !== "string" || token === "") return;
+  var tokens = cachedShareTokens() || {};
+  var ids = Object.keys(morningFills);
+  for (var i=0;i<ids.length;i++){
+    if (tokens[ids[i]] === token){
+      morningFills[ids[i]].pending = count;
+      renderMorning();
+      return;
+    }
+  }
+}
+
+/* שורת קבוצה: תווית + צ'יפ לחיץ לכל לקוח/ה (לחיצה פותחת את הכרטיס;
+   tab — הטאב שאליו לקפוץ, ברירת מחדל "client") */
+function morningChipRow(wrap, label, items, cls, textFn, tab){
   if (!items.length) return;
   var row = el("div","row-flex");
   row.appendChild(el("span","lbl", label));
@@ -7104,7 +7430,7 @@ function morningChipRow(wrap, label, items, cls, textFn){
       chip.type = "button";
       chip.addEventListener("click", function(){
         setActiveClient(it.id);
-        showTab("client");
+        showTab(tab || "client");
       });
       row.appendChild(chip);
     })(items[i]);
@@ -7122,7 +7448,9 @@ function renderMorning(){
   }
   var store = readClientsStore();
   var today = todayISO();
-  var sum = morningSummary(store.clients, morningFills || {}, cachedShareTokens(), today, addDaysISO(today, -1));
+  var fills = morningFills || {}, pendingById = {}, fillIds = Object.keys(fills);
+  for (var pi=0;pi<fillIds.length;pi++) pendingById[fillIds[pi]] = fills[fillIds[pi]].pending;
+  var sum = morningSummary(store.clients, fills, cachedShareTokens(), today, addDaysISO(today, -1), pendingById);
   meta.textContent = "נכון ל-" + isoDateText(today) + " · לחיצה על שם פותחת את הלקוח/ה";
   morningChipRow(body, "מילאו היום:", sum.filledToday, "chip-ok");
   morningChipRow(body, "מילאו אתמול:", sum.filledYesterday, "chip-neutral");
@@ -7130,6 +7458,9 @@ function renderMorning(){
   morningChipRow(body, "חרגו מהתקציב:", sum.overBudget, "chip-bad", function(it){
     return it.name + " (" + it.over + (it.over === 1 ? " ארוחה" : " ארוחות") + ")";
   });
+  morningChipRow(body, "מדידות ממתינות:", sum.pendingMeasurements, "chip-warn", function(it){
+    return it.name + " (" + it.count + ")";
+  }, "tracking");
   morningChipRow(body, "מנוי מסתיים:", sum.subsEnding, "chip-warn", function(it){ return it.name + " — " + it.text; });
   morningChipRow(body, "בלי תפריט:", sum.noMenu, "chip-neutral");
   morningChipRow(body, "בלי קישור:", sum.noLink, "chip-neutral");

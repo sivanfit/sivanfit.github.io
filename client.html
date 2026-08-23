@@ -243,6 +243,17 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .acct-email{flex:1 1 180px; min-width:0; font:inherit; font-size:16px; padding:9px 11px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text)}
 #acctNote:empty,#signinNote:empty{display:none}
 
+/* ---------- מדידות (23.8.2026) ---------- */
+.meas-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+.meas-field{display:flex; flex-direction:column; gap:4px; font-size:12.5px; font-weight:700; color:var(--text-soft)}
+.meas-date{max-width:230px}
+/* 16px — בלי זום אוטומטי בספארי באייפון */
+.meas-grid input,#measDateIn,#measNoteIn{width:100%; font:inherit; font-size:16px; padding:9px 11px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text)}
+#measNoteIn{resize:vertical; min-height:44px}
+.meas-pending-row{font-size:13px; color:var(--text-muted)}
+.meas-pending-row b{color:var(--text)}
+.meas-pending-note{font-size:12px; color:var(--text-soft)}
+
 /* ---------- alerts + summary ---------- */
 .alert{border:1px solid var(--warn); background:var(--warn-bg); color:var(--warn); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; font-weight:600}
 .alert-bad{border-color:var(--bad); background:var(--bad-bg); color:var(--bad)}
@@ -332,6 +343,8 @@ td.n,th.n{text-align:end; white-space:nowrap}
 #signinCard .fill-save-note.bad{color:#FFE3E0}
 #signinCard .note-line{color:rgba(255,255,255,.85); border-top-color:rgba(255,255,255,.35)}
 #acctCard .acct-email{border-color:var(--border)}
+#btnSendMeasure{border-radius:999px; padding:12px 20px}
+.meas-grid input,#measDateIn,#measNoteIn{border-color:var(--border)}
 /* ==== SAND-SERIF-END ==== */
 </style>
 </head>
@@ -488,6 +501,26 @@ td.n,th.n{text-align:end; white-space:nowrap}
       </div>
     </section>
 
+    <!-- מדידות (23.8.2026, תוספת B): הלקוחה מדווחת משקל/היקפים — סיוון מאשרת ומכניסה לטבלה -->
+    <section class="card stack hidden" id="measureCard" data-view="track">
+      <div>
+        <span class="eyebrow">מדידות</span>
+        <h2 class="card-title">המדידות שלי</h2>
+      </div>
+      <p class="lede">מלאי מה שמדדת — סיוון תאשר ותכניס לטבלה.</p>
+      <label class="meas-field meas-date"><span>תאריך המדידה</span><input type="date" id="measDateIn"></label>
+      <div class="meas-grid" id="measGrid"></div>
+      <textarea id="measNoteIn" maxlength="300" rows="2" placeholder="הערה לסיוון (לא חובה)"></textarea>
+      <div class="fill-save">
+        <button class="btn" id="btnSendMeasure" type="button">שליחה לסיוון</button>
+        <span class="fill-save-note" id="measSendNote"></span>
+      </div>
+      <div class="stack-sm hidden" id="measPendingWrap">
+        <p class="fill-title">ממתין לאישור של סיוון</p>
+        <div class="stack-sm" id="measPendingList"></div>
+      </div>
+    </section>
+
     <section class="card stack hidden" id="trackCard" data-view="track">
       <div>
         <span class="eyebrow">מעקב</span>
@@ -546,7 +579,11 @@ td.n,th.n{text-align:end; white-space:nowrap}
       נאכף גם בחוקי האבטחה של Firestore).
    3. חשבון אישי (22.8.2026): links/{uid} = {v,token,email,updatedAt} — נכתב רק
       בלחיצה מפורשת על "חיבור" (לעולם לא אוטומטית בכניסה); מאפשר לפתוח את
-      הפורטל בלי הקישור. אין בעמוד הזה update/delete.
+      הפורטל בלי הקישור.
+   4. מדידות (23.8.2026): responses/{token}/measurements/{YYYY-MM-DD} =
+      {v,updatedAt,values,note?} — משקל/היקפים שהלקוחה שולחת לפי העמודות של
+      טבלת המעקב; ממתינות לאישור של סיוון (היא מאשרת → הערכים נכנסים לטבלה,
+      או דוחה → המסמך נמחק אצלה). אין בעמוד הזה update/delete.
    ============================================================ */
 
 /* ---------- helpers ---------- */
@@ -1096,6 +1133,19 @@ function onPickMenu(ev){
   showMenu(idx);
 }
 
+/* עמודות טבלת המעקב כפי שסיוון הגדירה אותן ({id,label}, רק עם id לא ריק).
+   חולץ מ-renderTracking (23.8.2026) — כרטיס המדידות בונה מהן את שדות הקלט */
+function shareColumns(tr){
+  var cols = [];
+  if (!tr) return cols;
+  var rawCols = arrOf(tr.columns);
+  for (var c=0; c<rawCols.length; c++){
+    var col = objOf(rawCols[c]);
+    if (col && textOf(col.id)) cols.push(col);
+  }
+  return cols;
+}
+
 function renderTracking(tracking){
   var card = $("trackCard");
   var table = $("trackTable");
@@ -1103,12 +1153,7 @@ function renderTracking(tracking){
   var tr = objOf(tracking);
   if (!tr){ show(card, false); return; }
 
-  var cols = [];
-  var rawCols = arrOf(tr.columns);
-  for (var c=0; c<rawCols.length; c++){
-    var col = objOf(rawCols[c]);
-    if (col && textOf(col.id)) cols.push(col);
-  }
+  var cols = shareColumns(tr);
   var rows = objOf(tr.rows) || {};
 
   var dates = [];
@@ -1154,6 +1199,209 @@ function renderTracking(tracking){
   }
   table.appendChild(tbody);
   show(card, true);
+}
+
+/* ---------- מדידות (23.8.2026, תוספת B) ----------
+   הלקוחה מדווחת משקל/היקפים לפי אותן עמודות שסיוון הגדירה בטבלת המעקב.
+   השליחה נכתבת ל-responses/{token}/measurements/{YYYY-MM-DD} וממתינה לאישור שלה:
+   אישור → הערכים מופיעים בטבלה בטעינה הבאה; דחייה → המסמך נמחק אצלה.
+   הכרטיס מוצג בכל פעם שיש עמודות — גם לפני שיש שורה אחת בטבלה */
+function renderMeasureCard(tracking){
+  var card = $("measureCard");
+  var grid = $("measGrid");
+  if (!card || !grid) return;
+  var cols = shareColumns(objOf(tracking)).slice(0, 14);
+  MEAS_COLS = cols;
+  if (!cols.length){ show(card, false); return; }
+
+  var today = localDayISO();
+  var dateIn = $("measDateIn");
+  if (dateIn){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(textOf(dateIn.value))) dateIn.value = today;
+    dateIn.setAttribute("max", today);
+  }
+
+  /* 23.8.2026: השדות נבנים תמיד מחדש. הנשיאה של ערכים שהוקלדו הייתה יכולה לפעול רק
+     בהחלפת טוקן (רינדור חוזר של אותו שיתוף לא קורה) — כלומר להדליף הקלדה בין לקוחות */
+  clear(grid);
+  for (var i=0; i<cols.length; i++){
+    var id = textOf(cols[i].id);
+    var field = el("label","meas-field");
+    field.appendChild(el("span", null, textOf(cols[i].label) || id));
+    var input = document.createElement("input");
+    input.type = "text";
+    input.setAttribute("data-col", id);
+    /* מקלדת מספרים לכל העמודות חוץ מעמודת הערות חופשית */
+    input.setAttribute("inputmode", id === "notes" ? "text" : "decimal");
+    input.setAttribute("maxlength", "80");   /* 23.8.2026: אותה תקרה שחוקי Firestore אוכפים */
+    field.appendChild(input);
+    grid.appendChild(field);
+  }
+  show(card, true);
+  loadPending(cols);
+}
+
+/* איפוס מלא של כרטיס המדידות (23.8.2026) — נקרא מ-loadShare לפני טעינת שיתוף אחר,
+   כדי ששום שריד של הלקוחה הקודמת (שדות, תאריך, הערה, ממתינות, כפתור חסום) לא יישאר */
+function resetMeasureCard(){
+  MEAS_COLS = [];
+  MEAS_CONFIRM_DAY = "";
+  MEAS_PENDING_DAYS = {};
+  var grid = $("measGrid");
+  if (grid) clear(grid);
+  var dateIn = $("measDateIn");
+  if (dateIn) dateIn.value = "";
+  var noteIn = $("measNoteIn");
+  if (noteIn) noteIn.value = "";
+  measNote("", "");
+  var btn = $("btnSendMeasure");
+  if (btn) btn.disabled = false;
+  var list = $("measPendingList");
+  if (list) clear(list);
+  var wrap = $("measPendingWrap");
+  if (wrap) show(wrap, false);
+  var card = $("measureCard");
+  if (card) show(card, false);
+}
+
+function measNote(text, cls){
+  var node = $("measSendNote");
+  if (!node) return;
+  node.textContent = text || "";
+  node.className = "fill-save-note" + (cls ? " " + cls : "");
+}
+
+/* תאריך אמיתי ולא רק צורה נכונה (23.8.2026) — "2026-02-31" נראה תקין לרג'קס
+   אבל אין יום כזה, והמסמך היה נכתב תחת מזהה חסר-משמעות. חשבון פשוט, בלי Date */
+function validDayISO(s){
+  var t = textOf(s).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return false;
+  var y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7)), d = Number(t.slice(8, 10));
+  if (m < 1 || m > 12 || d < 1) return false;
+  var lengths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  var max = lengths[m - 1];
+  if (m === 2 && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) max = 29;
+  return d <= max;
+}
+
+function sendMeasure(){
+  if (!PORTAL_DB || !PORTAL_TOKEN || MEAS_SAVING) return;
+  var tok = PORTAL_TOKEN;   /* הטוקן שאליו השליחה הזו שייכת — ייתכן שיתחלף תוך כדי */
+  var dateIn = $("measDateIn");
+  var day = textOf(dateIn ? dateIn.value : "").trim();
+  if (!validDayISO(day)){ measNote("תאריך לא תקין", "bad"); return; }
+  if (day > localDayISO()){ measNote("התאריך לא יכול להיות עתידי", "bad"); return; }
+  if (day < "2000-01-01"){ measNote("תאריך לא תקין", "bad"); return; }
+
+  var grid = $("measGrid");
+  var inputs = grid ? grid.querySelectorAll("input[data-col]") : [];
+  var values = {}, count = 0;
+  for (var i=0; i<inputs.length; i++){
+    if (count >= 14) break;   /* תקרת המפתחות שחוקי Firestore אוכפים */
+    var colId = textOf(inputs[i].getAttribute("data-col"));
+    if (!colId) continue;
+    var v = textOf(inputs[i].value).trim();
+    if (v === "") continue;
+    if (v.length > 80) v = v.slice(0, 80);
+    values[colId] = v;
+    count++;
+  }
+  if (!count){ measNote("מלאי לפחות ערך אחד", "bad"); return; }
+
+  /* מדידה לאותו יום דורסת את הקודמת (מזהה המסמך הוא התאריך) — 23.8.2026:
+     אזהרה דו-שלבית, הלחיצה השנייה על אותו תאריך היא זו שמחליפה */
+  if (MEAS_PENDING_DAYS[day] && MEAS_CONFIRM_DAY !== day){
+    MEAS_CONFIRM_DAY = day;
+    measNote("כבר שלחת מדידה לתאריך הזה — לחיצה נוספת תחליף אותה", "bad");
+    return;
+  }
+
+  var noteIn = $("measNoteIn");
+  var freeNote = textOf(noteIn ? noteIn.value : "").trim().slice(0, 300);
+  var payload = {v:1, updatedAt:new Date().toISOString(), values:values};
+  if (freeNote) payload.note = freeNote;   /* השדה נשלח רק כשיש בו תוכן */
+
+  MEAS_SAVING = true;
+  var btn = $("btnSendMeasure");
+  if (btn) btn.disabled = true;
+  measNote("שולחים...", "");
+  PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("measurements").doc(day).set(payload).then(function(){
+    /* 23.8.2026: קודם שער הטוקן. שחרור הדגלים לפניו היה פותח את כפתור השליחה
+       של שיתוף אחר שכבר מוצג — resetMeasureCard כבר שחרר אותו בהחלפה */
+    if (PORTAL_TOKEN !== tok) return;   /* בינתיים הוצגה תוכנית אחרת */
+    MEAS_SAVING = false;
+    if (btn) btn.disabled = false;
+    MEAS_CONFIRM_DAY = "";
+    measNote("נשלח ✓ — ממתין לאישור של סיוון", "ok");
+    var ins = grid ? grid.querySelectorAll("input[data-col]") : [];
+    for (var j=0; j<ins.length; j++) ins[j].value = "";
+    if (noteIn) noteIn.value = "";   /* התאריך נשאר, כדי להוסיף עוד מדידה לאותו יום */
+    loadPending(MEAS_COLS);
+  }, function(err){
+    if (PORTAL_TOKEN !== tok) return;
+    MEAS_SAVING = false;
+    if (btn) btn.disabled = false;
+    /* כל עוד חוקי המדידות לא פורסמו Firestore מחזיר permission-denied — לא בעיית רשת */
+    var code = (err && err.code) ? err.code : "";
+    if (code === "permission-denied") measNote("השליחה עדיין לא פעילה — נסי שוב מאוחר יותר, ואם זה חוזר פני לסיוון", "bad");
+    else measNote("השליחה נכשלה — בדקי חיבור לאינטרנט ונסי שוב", "bad");
+  });
+}
+
+/* המדידות שנשלחו וטרם אושרו. כישלון (חוקים חסרים / אופליין) = מסתירים בשקט —
+   זה מידע משלים, ואסור שיצבע את העמוד כשבורה */
+function loadPending(cols){
+  if (!PORTAL_DB || !PORTAL_TOKEN) return;
+  var wrap = $("measPendingWrap");
+  var list = $("measPendingList");
+  if (!wrap || !list) return;
+  var tok = PORTAL_TOKEN;
+  var use = arrOf(cols);
+  /* תווית לפי מזהה העמודה; עמודה שסיוון מחקה בינתיים תוצג לפי המזהה הגולמי
+     (23.8.2026) — כך שורה לעולם לא נראית כתאריך בודד בלי ערכים */
+  var labels = {};
+  for (var L=0; L<use.length; L++){
+    var lc = objOf(use[L]);
+    if (!lc) continue;
+    var lid = textOf(lc.id);
+    if (lid) labels[lid] = textOf(lc.label) || lid;
+  }
+  try {
+    PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("measurements")
+      .orderBy(firebase.firestore.FieldPath.documentId(), "desc").limit(20).get().then(function(snap){
+      if (PORTAL_TOKEN !== tok) return;
+      clear(list);
+      MEAS_PENDING_DAYS = {};
+      var docs = (snap && snap.docs) ? snap.docs : [];
+      var shown = 0;
+      for (var i=0; i<docs.length; i++){
+        var doc = docs[i];
+        var day = textOf(doc.id);
+        if (day) MEAS_PENDING_DAYS[day] = true;   /* מזין את אזהרת הדריסה ב-sendMeasure */
+        var data = objOf(doc.data ? doc.data() : null) || {};
+        var vals = objOf(data.values) || {};
+        var row = el("div","meas-pending-row");
+        row.appendChild(document.createTextNode(isoDateText(day)));
+        var keys = Object.keys(vals);
+        for (var c=0; c<keys.length; c++){
+          var id = keys[c];
+          if (!id) continue;
+          var raw = vals[id];
+          if (typeof raw !== "string" && typeof raw !== "number") continue;
+          var v = textOf(raw).trim();
+          if (v === "") continue;
+          var lab = Object.prototype.hasOwnProperty.call(labels, id) ? labels[id] : id;
+          row.appendChild(document.createTextNode(" · " + lab + " "));
+          row.appendChild(el("b", null, v));
+        }
+        list.appendChild(row);
+        var nt = textOf(data.note).trim();
+        if (nt) list.appendChild(el("div","meas-pending-note", "הערה: " + nt));
+        shown++;
+      }
+      show(wrap, shown > 0);
+    }, function(){ if (PORTAL_TOKEN === tok){ clear(list); show(wrap, false); } });
+  } catch (e){ show(wrap, false); }
 }
 
 function renderSummary(summary){
@@ -1217,6 +1465,10 @@ function anyOverBudget(){
 }
 
 var SAVING = false;   /* מונע לחיצת שמירה כפולה בזמן שכתיבה קודמת עוד רצה */
+var MEAS_SAVING = false;   /* אותו דבר לשליחת המדידות (23.8.2026) */
+var MEAS_COLS = [];        /* עמודות המדידה של השיתוף המוצג — נקבעות ב-renderMeasureCard */
+var MEAS_PENDING_DAYS = {};   /* {יום: true} — הימים שכבר ממתינים לאישור, מ-loadPending (23.8.2026) */
+var MEAS_CONFIRM_DAY = "";    /* היום שעליו כבר הוצגה אזהרת דריסה — לחיצה שנייה מחליפה */
 
 function refreshSaveBar(){
   var bar = $("fillSaveBar");
@@ -1335,6 +1587,10 @@ function localDayISO(){
   return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
 }
 $("btnSaveChoices").addEventListener("click", saveChoices);
+$("btnSendMeasure").addEventListener("click", sendMeasure);
+/* 23.8.2026: החלפת תאריך מבטלת אזהרת דריסה שהוצגה על התאריך הקודם */
+var MEAS_DATE_EL = $("measDateIn");
+if (MEAS_DATE_EL) MEAS_DATE_EL.addEventListener("change", function(){ MEAS_CONFIRM_DAY = ""; });
 
 /* ---------- מילוי עצמי: טעינת קטלוג ותשובות קודמות ---------- */
 function applyCatalog(snap){
@@ -1422,6 +1678,7 @@ function renderShare(data){
   renderTargets(d.targets);
   renderMenus(d.menus, d.targets);
   renderTracking(d.tracking);
+  renderMeasureCard(d.tracking);
   renderSummary(d.summary);
   updateStaleNote();
   /* קטלוג שנכשל בטעינה כשיש ארוחות — אומרים ללקוחה במקום להעלים את אזור המילוי */
@@ -1522,6 +1779,8 @@ function loadShare(token, source){
      הקטלוג והטאב הפעיל של הלקוחה הקודמת נשארים על המסך ואף נשמרים לתוכנית החדשה */
   SHARE = null; FILL_CHOICES = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
   PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
+  MEAS_SAVING = false;
+  resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
   PORTAL_TOKEN = token;
   TOKEN_SOURCE = source || "hash";
   var seq = ++LOAD_SEQ;
