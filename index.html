@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#35291C">
+<link rel="manifest" href="manifest-dashboard.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="הדשבורד של סיוון">
 <title>הדשבורד של סיוון — מערכת תפריטים</title>
 <style>*{margin:0;padding:0}html,body{height:100%}img,svg{display:block;max-width:100%}button,input,select,textarea{font:inherit;color:inherit}</style>
 <style>
@@ -825,7 +830,7 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <a class="btn btn-sm hidden" id="btnWhatsShare" target="_blank" rel="noopener noreferrer">שליחה בוואטסאפ</a>
         <button class="btn btn-quiet btn-sm" id="btnRevokeShare" type="button">בטל קישור</button>
       </div>
-      <p class="note-line" id="shareAutoNote">כל שמירה מעדכנת אוטומטית את מה שהלקוח/ה רואה בקישור. הבחירות שהלקוח/ה ממלא/ת מוצגות בטאב "טבלת מעקב".</p>
+      <p class="note-line" id="shareAutoNote">כל שמירה מעדכנת אוטומטית את מה שהלקוח/ה רואה בקישור. הבחירות שהלקוח/ה ממלא/ת מוצגות בטאב "טבלת מעקב". הקישור קצר ואישי — עובד רק לתוכנית של הלקוח/ה הזו.</p>
       <p class="note-line hidden" id="shareLocalNote">שיתוף קישור זמין רק באתר החי (דרוש חיבור לענן).</p>
       <!-- חשבונות מקושרים (22.8.2026): מי חיברה חשבון Google/מייל ונכנסת גם בלי הקישור -->
       <div class="stack-sm hidden" id="shareAccountsWrap"></div>
@@ -4997,7 +5002,13 @@ $("btnCopyToTargets").addEventListener("click", function(){
 
 /* ---------- כרטיס שיתוף וייצוא ---------- */
 /* שורת השיתוף מוצגת רק כשהענן מחובר; כפתורי הייצוא עובדים תמיד — כל עוד הספריות נטענו */
-var SHARE_LINK_BASE = "https://sapi60089-ai.github.io/sivan-dashboard/client.html#t=";
+/* קישור אישי קצר (שלב ב', 23.8.2026): <כתובת-האתר>/p/#<טוקן> — p/index.html מפנה ל-client.html#t=.
+   הבסיס נגזר מהכתובת שממנה הדשבורד רץ, כך שמעבר דומיין לא דורש שינוי קוד; מ-file:// נופלים לכתובת הציבורית */
+function siteBaseUrl(){
+  if (/^https?:$/.test(location.protocol)) return location.origin + location.pathname.replace(/[^\/]*$/, "");
+  return "https://sapi60089-ai.github.io/sivan-dashboard/";
+}
+var SHARE_LINK_BASE = siteBaseUrl() + "p/#";
 var WHATS_SHARE_BASE = "https://wa.me/?text=";   /* קישור ניווט לוואטסאפ — לא משאב נטען */
 var EXPORT_MISSING_MSG = "הייצוא לא זמין בגרסה הזו";
 
@@ -5117,9 +5128,11 @@ function buildShareDoc(client){
   };
 }
 
-/* ===== הטוקן: 28 תווים מתוך 36 (36^28 ≈ 2^145) — בלתי ניתן לניחוש, ואין מנייה בענן ===== */
+/* ===== הטוקן: 20 תווים מתוך 36 (36^20 ≈ 2^103) — בלתי ניתן לניחוש, ואין מנייה בענן =====
+   קוצר מ-28 ל-20 ב-23.8.2026 (שלב ב') כדי שהקישור האישי יישאר קצר; טוקנים ישנים באורך 28
+   ממשיכים לעבוד — חוק ה-Firestore מקבל 20-40 תווים והפורטל מקבל 20 ומעלה. */
 var SHARE_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
-var SHARE_TOKEN_LEN = 28;
+var SHARE_TOKEN_LEN = 20;
 
 function shareRandomBytes(count){
   var out = [], i;
@@ -8215,6 +8228,12 @@ if (!initFirebase()){
       refreshCloudUI();
     });
   });
+}
+
+/* PWA שלב ב', 23.8.2026 — רישום ה-service worker (sw.js לצד הדף).
+   רק תחת http/https: מ-file:// הרישום נכשל ממילא, ולא רוצים שגיאה בקונסולה. */
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
+  try { navigator.serviceWorker.register("sw.js").catch(function(){}); } catch(e){}
 }
 
 })();

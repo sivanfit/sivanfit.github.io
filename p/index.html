@@ -1,0 +1,68 @@
+<!doctype html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>התוכנית שלי — סיוון ייעוץ תזונה</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #FAF7F1;
+    color: #35291C;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  .wrap {
+    max-width: 320px;
+  }
+  p {
+    margin: 0 0 14px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  a {
+    color: #35291C;
+    font-weight: 600;
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<p id="msg">פותחים את התוכנית שלך…</p>
+<p><a id="fallback" href="../client.html">אם העמוד לא נפתח — לחצי כאן</a></p>
+</div>
+<script>
+/* סקירה יריבותית 23.8.2026: הביטוי הקודם היה עוגן-לעוגן ורגיש-רישיות, ולכן כל
+   סטייה קטנה בקישור (טוקן שהודבק עם רווח/נקודה, אותיות גדולות מתיקון-אוטומטי,
+   פרמטר נוסף אחרי ה-hash) הפילה אותו — והקוד שלח את הלקוחה ל-client.html בלי
+   טוקן, כלומר ישר למסך הכניסה בלי שום הסבר. עכשיו: מחפשים טוקן בכל מקום ב-hash,
+   ו-hash לא-ריק שאין בו טוקן מקבל הודעה במקום הפניה שקטה שנראית כמו תקלה. */
+var h = String(location.hash || "").replace(/^#/, "");
+var m = h.match(/([a-z0-9]{20,40})/i);
+var tok = m ? m[1].toLowerCase() : "";
+var go = document.getElementById("fallback");
+if (h === ""){
+  /* בלי hash בכלל — הפורטל יודע להיכנס לבד מהחשבון או מזיכרון-המכשיר */
+  location.replace("../client.html");
+} else if (tok){
+  var target = "../client.html#t=" + tok;
+  go.setAttribute("href", target);
+  location.replace(target);
+} else {
+  document.getElementById("msg").textContent = "הקישור לא תקין — בקשי מסיוון קישור חדש";
+}
+</script>
+</body>
+</html>

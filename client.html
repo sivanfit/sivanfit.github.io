@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- אפליקציה במסך הבית (PWA, שלב ב' 23.8.2026). תג המניפסט חסר כאן בכוונה — הוא מוזרק
+     ב-JS ורק כשלא iOS; באייפון מתקינים בלי מניפסט כדי שכתובת ההתחלה תישאר הכתובת
+     הנוכחית עם הטוקן (#t=...), כי האחסון של אפליקציית מסך-הבית מבודד מספארי -->
+<meta name="theme-color" content="#35291C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="התוכנית שלי">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
 <meta name="robots" content="noindex">
 <title>התוכנית שלי — סיוון ייעוץ תזונה</title>
 <style>
@@ -254,6 +263,11 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .meas-pending-row b{color:var(--text)}
 .meas-pending-note{font-size:12px; color:var(--text-soft)}
 
+/* ---------- התקנה כאפליקציה (PWA, שלב ב' 23.8.2026) ---------- */
+.install-how{border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px}
+.install-how summary{cursor:pointer; font-weight:700; font-size:13.5px}
+.install-how ol{margin:8px 0 0; padding-inline-start:1.2em; font-size:13px; color:var(--text-muted); display:flex; flex-direction:column; gap:4px}
+
 /* ---------- alerts + summary ---------- */
 .alert{border:1px solid var(--warn); background:var(--warn-bg); color:var(--warn); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; font-weight:600}
 .alert-bad{border-color:var(--bad); background:var(--bad-bg); color:var(--bad)}
@@ -345,6 +359,7 @@ td.n,th.n{text-align:end; white-space:nowrap}
 #acctCard .acct-email{border-color:var(--border)}
 #btnSendMeasure{border-radius:999px; padding:12px 20px}
 .meas-grid input,#measDateIn,#measNoteIn{border-color:var(--border)}
+#installCard .btn{border-radius:999px}
 /* ==== SAND-SERIF-END ==== */
 </style>
 </head>
@@ -454,6 +469,34 @@ td.n,th.n{text-align:end; white-space:nowrap}
       <div class="row-flex">
         <button class="btn" id="btnGoFill" type="button">למילוי התפריט ←</button>
       </div>
+    </section>
+
+    <!-- התקנה כאפליקציה (PWA, שלב ב' 23.8.2026): באנדרואיד/כרום יש כפתור אמיתי
+         (beforeinstallprompt), באייפון ההתקנה ידנית מתפריט השיתוף — ולכן ההוראות -->
+    <section class="card stack hidden" id="installCard" data-view="home">
+      <div>
+        <span class="eyebrow">האפליקציה</span>
+        <h2 class="card-title">להוסיף למסך הבית</h2>
+      </div>
+      <p class="lede">פעם אחת — ואז התוכנית נפתחת כמו אפליקציה, ישר מהמסך הראשי.</p>
+      <button class="btn btn-solo hidden" id="btnInstallApp" type="button">התקנה במסך הבית</button>
+      <details class="install-how">
+        <summary>באייפון (Safari)</summary>
+        <ol>
+          <li>לחצי על כפתור השיתוף (הריבוע עם החץ למעלה) בתחתית המסך</li>
+          <li>גללי ובחרי "הוסף למסך הבית"</li>
+          <li>אשרי — והאייקון "התוכנית שלי" יופיע במסך הבית</li>
+        </ol>
+      </details>
+      <details class="install-how">
+        <summary>באנדרואיד (Chrome)</summary>
+        <ol>
+          <li>לחצי על שלוש הנקודות למעלה</li>
+          <li>בחרי "הוספה למסך הבית" / "התקנת אפליקציה"</li>
+          <li>אשרי</li>
+        </ol>
+      </details>
+      <p class="note-line">טיפ: התקיני מתוך הקישור האישי שלך — כך האפליקציה תיפתח ישר לתוכנית.</p>
     </section>
 
     <section class="card stack hidden" id="targetsCard" data-view="targets">
@@ -584,6 +627,12 @@ td.n,th.n{text-align:end; white-space:nowrap}
       {v,updatedAt,values,note?} — משקל/היקפים שהלקוחה שולחת לפי העמודות של
       טבלת המעקב; ממתינות לאישור של סיוון (היא מאשרת → הערכים נכנסים לטבלה,
       או דוחה → המסמך נמחק אצלה). אין בעמוד הזה update/delete.
+   אפליקציה במסך הבית (PWA, שלב ב' 23.8.2026): נרשם service worker (sw.js) ל-cache
+   של הקבצים הסטטיים — רק ב-http(s), אף פעם לא מ-file://. תג המניפסט מוזרק ב-JS
+   ורק כשלא iOS: באייפון מתקינים בכוונה בלי manifest, כי אז אפליקציית מסך-הבית
+   שומרת את הכתובת הנוכחית (עם #t=<token>) ככתובת ההתחלה. האחסון של אפליקציית
+   מסך-הבית מבודד מספארי — זיכרון-המכשיר וסשן ה-Auth לא נוסעים איתה, והטוקן
+   שבכתובת הוא מה שמכניס אותה ישר לתוכנית.
    ============================================================ */
 
 /* ---------- helpers ---------- */
@@ -1687,6 +1736,7 @@ function renderShare(data){
   show($("catalogFailNote"), shareHasMeals(d) && !CATALOG_READY);
   show($("homeCtaCard"), PORTAL_MENUS.length > 0 && CATALOG_READY);
   refreshAcctCard();
+  refreshInstallCard();
   refreshPortalNav();
 }
 
@@ -1783,6 +1833,7 @@ function loadShare(token, source){
   PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
   MEAS_SAVING = false;
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
+  show($("installCard"), false);   /* כרטיס ההתקנה תלוי ב-SHARE — חוזר ב-renderShare */
   PORTAL_TOKEN = token;
   TOKEN_SOURCE = source || "hash";
   var seq = ++LOAD_SEQ;
@@ -1882,7 +1933,12 @@ function showSignIn(state, extra){
   show($("errorCard"), false);
   hidePortalNav();
   var askMode = state === "askEmail", notLinked = state === "notlinked";
-  show($("signinActions"), !askMode && !notLinked);
+  /* 23.8.2026 (סקירה יריבותית): בתוך אפליקציית מסך-הבית באייפון גם שני כפתורי מסך
+     הכניסה לא יכולים לעבוד — חלון ה-Google הקופץ נחסם, וקישור-המייל נפתח בדפדפן
+     אחר שהאחסון שלו מבודד מהאפליקציה. במקום להציע כניסה שתיכשל, מסבירים לפתוח את
+     הקישור האישי בספארי (שם ההתקנה כבר לוכדת את הטוקן). באנדרואיד שום דבר לא משתנה */
+  var lockedIOS = !askMode && !notLinked && isStandalone() && isIOS();
+  show($("signinActions"), !askMode && !notLinked && !lockedIOS);
   show($("signinEmailAsk"), askMode);
   show($("btnSigninSignOut"), notLinked);
   show($("signinFoot"), !askMode && !notLinked);
@@ -1894,7 +1950,9 @@ function showSignIn(state, extra){
     $("signinLede").textContent = "כדי להשלים את הכניסה, כתבי את המייל שאליו נשלח הקישור.";
   } else {
     $("signinTitle").textContent = "ברוכה הבאה לתוכנית שלך";
-    $("signinLede").textContent = "התחברי עם החשבון שחיברת — או פתחי את הקישור האישי שקיבלת מסיוון.";
+    $("signinLede").textContent = lockedIOS
+      ? "כדי להיכנס, פתחי את הקישור האישי שקיבלת מסיוון ב-Safari (לא מתוך האפליקציה) — ואז האפליקציה תיפתח ישר לתוכנית."
+      : "התחברי עם החשבון שחיברת — או פתחי את הקישור האישי שקיבלת מסיוון.";
   }
   setNote("signinNote", "", "");
   show($("signinCard"), true);
@@ -1913,10 +1971,15 @@ function refreshAcctCard(){
   var user = AUTH_USER;
   if (user !== null && LINKED_TOKEN === null){ show(card, false); return; }   /* עוד בודקים את הקישור */
   var linkedHere = user !== null && LINKED_TOKEN === PORTAL_TOKEN;
+  /* PWA (שלב ב', 23.8.2026): בתוך אפליקציית מסך-הבית באייפון אי אפשר לחבר חשבון —
+     חלון ה-Google הקופץ וקישור-המייל נשברים שם (האחסון מבודד מספארי, ומייל נפתח בדפדפן אחר).
+     במקום כפתורים שלא יעבדו מסבירים לחבר פעם אחת מספארי; המצבים המחוברים לא משתנים */
+  var lockedIOS = user === null && isStandalone() && isIOS();
   show($("acctConnect"), !linkedHere);
   show($("acctLinked"), linkedHere);
   show($("btnAcctSignOut"), user !== null);
-  show($("acctEmailRow"), user === null);
+  show($("acctEmailRow"), user === null && !lockedIOS);
+  show($("btnConnectGoogle"), !lockedIOS);
   if (linkedHere){
     $("acctTitle").textContent = "החשבון מחובר ✓";
     $("acctLinkedText").textContent = "מחוברת כ-" + emailOf(user) + " — מעכשיו אפשר להיכנס לתוכנית גם בלי הקישור, מכל מכשיר.";
@@ -1928,6 +1991,9 @@ function refreshAcctCard(){
     /* 23.8.2026: התווית מתחילה תמיד ב-"חיבור", כי ההוראות (בפורטל ובדשבורד) מצטטות
        כפתור בשם הזה; המייל מופיע ב-lede ולא על הכפתור (כתובות ארוכות מתחו את הגלולה) */
     $("btnConnectGoogle").textContent = "חיבור החשבון לתוכנית הזו";
+  } else if (lockedIOS){
+    $("acctTitle").textContent = "רוצה להיכנס בלי הקישור?";
+    $("acctLede").textContent = "כדי לחבר חשבון פתחי את הקישור האישי ב-Safari (לא מתוך האפליקציה) ולחצי שם \"חיבור\". באפליקציה עצמה נכנסים ישר לתוכנית.";
   } else {
     $("acctTitle").textContent = "רוצה להיכנס בלי הקישור?";
     $("acctLede").textContent = (TOKEN_SOURCE === "device")
@@ -2141,6 +2207,85 @@ window.addEventListener("hashchange", function(){
   var t = shareToken();
   if (t && t !== PORTAL_TOKEN && PORTAL_DB){ ENTRY_MODE = "hash"; SHARE = null; loadShare(t, "hash"); }
 });
+
+/* ---------- אפליקציה במסך הבית (PWA, שלב ב' 23.8.2026) ----------
+   שני חצאים נפרדים: (א) service worker שמחזיק בקאש את הקבצים הסטטיים,
+   (ב) ההתקנה עצמה — באנדרואיד/כרום דרך beforeinstallprompt וכפתור אמיתי,
+   באייפון ידנית מתפריט השיתוף (ולכן ההוראות בכרטיס) */
+
+/* PWA (שלב ב', 23.8.2026): service worker ל-cache של הקבצים הסטטיים — רק ב-http(s), אף פעם לא מ-file:// */
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
+  try { navigator.serviceWorker.register("sw.js").catch(function(){}); } catch (e){}
+}
+
+/* 23.8.2026 (סקירה יריבותית): אייפד מ-iPadOS 13 ומעלה מדווח על עצמו כ-"Macintosh"
+   ב-user agent, ולכן הבדיקה הישנה החמיצה אותו לגמרי: הוא קיבל את המניפסט (ואיתו
+   start_url בלי הטוקן — כלומר אפליקציה שנפתחת ישר למסך הכניסה) ואת הוראות
+   ההתקנה של אנדרואיד. מק אמיתי מחזיר maxTouchPoints=0, אייפד מחזיר 5 */
+function isIOS(){
+  var ua = String(navigator.userAgent || "");
+  return (/iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1)) && !window.MSStream;
+}
+function isStandalone(){ return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true; }
+
+/* המניפסט מוזרק כאן ולא כתג סטטי, כי באייפון מתקינים בכוונה בלעדיו: בלי manifest
+   אפליקציית מסך-הבית שומרת את הכתובת שממנה התקינו (עם #t=<token>) ככתובת ההתחלה.
+   עם manifest iOS היה פותח את start_url — בלי הטוקן, ובאחסון מבודד מספארי
+   (זיכרון-המכשיר וסשן ה-Auth לא עוברים) — כלומר ישר למסך הכניסה */
+if (!isIOS()){
+  var ml = document.createElement("link");
+  ml.rel = "manifest";
+  ml.href = "manifest-portal.webmanifest";
+  document.head.appendChild(ml);
+}
+
+var INSTALL_PROMPT = null;   /* אירוע beforeinstallprompt ששמרנו (כרום/אנדרואיד); null = אין כפתור התקנה */
+
+/* הכרטיס מוצג רק כשיש תוכנית על המסך (SHARE) וכשלא נמצאים כבר בתוך האפליקציה המותקנת.
+   הכפתור עצמו — רק כשהדפדפן באמת הציע התקנה; באייפון נשארות ההוראות הידניות */
+function refreshInstallCard(){
+  var card = $("installCard");
+  if (!card) return;
+  var wanted = !!SHARE && !isStandalone();
+  /* 23.8.2026 (סקירה יריבותית): באייפון "הוספה למסך הבית" שומרת את הכתובת שעל
+     המסך *ברגע ההתקנה* ככתובת ההתחלה, והאחסון של אפליקציית מסך-הבית מבודד
+     מספארי — זיכרון-המכשיר וסשן ה-Auth לא עוברים אליה. לכן כשנכנסנו מהחשבון או
+     מזיכרון-המכשיר (כתובת בלי #t=) מחזירים את הטוקן לכתובת לפני שמציעים להתקין,
+     אחרת האפליקציה החדשה נפתחת ישר למסך כניסה שאי אפשר לעבור בו.
+     replaceState לא מפעיל hashchange, אז שום טעינה מחדש לא נגררת מזה */
+  if (wanted && isIOS() && validToken(PORTAL_TOKEN) && !shareToken()){
+    try { history.replaceState(null, "", location.pathname + "#t=" + PORTAL_TOKEN); } catch (e){}
+  }
+  show(card, wanted);
+  show($("btnInstallApp"), wanted && !!INSTALL_PROMPT);
+}
+
+window.addEventListener("beforeinstallprompt", function(ev){
+  ev.preventDefault();   /* לא מציגים את הבאנר של הדפדפן — הכפתור שלנו בכרטיס */
+  INSTALL_PROMPT = ev;
+  refreshInstallCard();
+});
+
+(function wireInstallCard(){
+  var b = $("btnInstallApp");
+  if (b) b.addEventListener("click", function(){
+    var ev = INSTALL_PROMPT;
+    if (!ev) return;
+    try { ev.prompt(); } catch (e){}
+    /* האירוע חד-פעמי: אחרי הבחירה (התקינה או ביטלה) הוא כבר לא שמיש */
+    var done = function(){ INSTALL_PROMPT = null; refreshInstallCard(); };
+    if (ev.userChoice && typeof ev.userChoice.then === "function") ev.userChoice.then(done, done);
+    else done();
+  });
+  /* התקנה תוך כדי הסשן → המסך עובר ל-standalone והכרטיס יורד מעצמו */
+  if (window.matchMedia){
+    var mq = window.matchMedia("(display-mode: standalone)");
+    if (mq && typeof mq.addEventListener === "function"){
+      mq.addEventListener("change", function(){ refreshInstallCard(); });
+    }
+  }
+})();
+
 boot();
 </script>
 
