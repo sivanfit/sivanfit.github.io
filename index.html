@@ -551,6 +551,9 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
   .app.builder-active .wrap{padding-bottom:calc(160px + env(safe-area-inset-bottom))}
   .app.builder-active .mobile-bar{inset-block-end:calc(64px + env(safe-area-inset-bottom))}
 }
+/* צ'יפ שנושא טקסט חופשי (כתובת מייל) — nowrap של .chip הוציא כתובות ארוכות
+   מגבולות כרטיס השיתוף במסך טלפון (23.8.2026) */
+.chip.chip-wrap{white-space:normal; word-break:break-all; text-align:start}
 /* ==== SAND-SERIF-END ==== */
 
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
@@ -819,6 +822,8 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
       </div>
       <p class="note-line" id="shareAutoNote">כל שמירה מעדכנת אוטומטית את מה שהלקוח/ה רואה בקישור. הבחירות שהלקוח/ה ממלא/ת מוצגות בטאב "טבלת מעקב".</p>
       <p class="note-line hidden" id="shareLocalNote">שיתוף קישור זמין רק באתר החי (דרוש חיבור לענן).</p>
+      <!-- חשבונות מקושרים (22.8.2026): מי חיברה חשבון Google/מייל ונכנסת גם בלי הקישור -->
+      <div class="stack-sm hidden" id="shareAccountsWrap"></div>
       <div class="row-flex">
         <button class="btn" id="btnExportPdf" type="button">הורד PDF תפריט</button>
         <button class="btn" id="btnExportPptx" type="button">הורד מצגת תהליך</button>
@@ -3239,6 +3244,7 @@ function cloudStopSync(){
   dirtyClientIds = {};
   settingsDirty = false;
   pendingWrites = 0;
+  linksByToken = {};
   if (pushTimer){ clearTimeout(pushTimer); pushTimer = null; }
 }
 
@@ -3248,6 +3254,80 @@ function unsubscribeSnapshots(){
   }
   cloudUnsubs = [];
   stopResponseWatch();
+}
+
+/* ---------- חשבונות מקושרים (links/{uid}, 22.8.2026) ----------
+   הפורטל כותב links/{uid} = {v,token,email,updatedAt} כשהלקוחה לוחצת "חיבור" — ומאז נכנסת בלי הקישור.
+   כאן רק קוראים (מאזין אחד על האוסף; שגיאות בשקט — לפני פרסום החוקים permission-denied היה
+   מנתק את סיוון) ומוחקים בביטול קישור / מחיקת לקוח / "נתק". המייל לא נכנס לשום מסמך אחר
+   (לא ללקוחה ולא לשיתוף הציבורי) */
+var linksByToken = {};   /* token → [{uid,email,updatedAt}] — שני חשבונות ללקוחה חוקיים */
+
+function applyLinksSnapshot(snap){
+  var map = {};
+  if (snap && typeof snap.forEach === "function"){
+    snap.forEach(function(doc){
+      var d = doc.data ? doc.data() : null;
+      if (!d || typeof d.token !== "string" || d.token === "") return;
+      if (!Object.prototype.hasOwnProperty.call(map, d.token)) map[d.token] = [];
+      map[d.token].push({
+        uid: doc.id,
+        email: (typeof d.email === "string") ? d.email : "",
+        updatedAt: (typeof d.updatedAt === "string") ? d.updatedAt : ""
+      });
+    });
+  }
+  linksByToken = map;
+  refreshShareCard();
+  renderClients();
+}
+function linksForToken(token){
+  if (!token || !Object.prototype.hasOwnProperty.call(linksByToken, token)) return [];
+  return linksByToken[token];
+}
+/* ביטול קישור / מחיקת לקוח: מוחקים גם את חשבונות ה-links שמצביעים על הטוקן */
+function forgetLinksForToken(token){
+  if (!fbDb || !token) return;
+  fbDb.collection("links").where("token", "==", token).limit(20).get().then(function(snap){
+    var ops = [];
+    if (snap && typeof snap.forEach === "function"){
+      snap.forEach(function(doc){ ops.push(doc.ref.delete()); });
+    }
+    return Promise.all(ops);
+  }).catch(function(){});
+}
+function forgetLinkUid(uid){
+  if (!fbDb || !uid) return;
+  fbDb.collection("links").doc(uid).delete().then(function(){
+    /* 23.8.2026: ניסוח מדויק — "נתק" מבטל רק את הכניסה בלי הקישור; הקישור עצמו ממשיך לעבוד */
+    toast("החשבון נותק — הכניסה בלי הקישור בוטלה, ואפשר לחבר שוב מהקישור");
+  }).catch(function(){ toast("הניתוק נכשל — נסי שוב"); });
+}
+/* שורות "חשבון מחובר: ..." בכרטיס השיתוף — מהקאש בלבד (נקרא מ-refreshShareCard בכל אירוע ענן) */
+function renderShareAccounts(token){
+  var wrap = $("shareAccountsWrap");
+  if (!wrap) return;
+  wrap.textContent = "";
+  if (!token){ wrap.classList.add("hidden"); return; }
+  wrap.classList.remove("hidden");
+  var list = linksForToken(token);
+  if (!list.length){
+    wrap.appendChild(el("p","note-line","אין חשבון מחובר — הלקוח/ה מחברת בעצמה מהקישור (כפתור \"חיבור\" במסך הבית בפורטל), ואז נכנסת גם בלי הקישור"));
+    return;
+  }
+  for (var i=0;i<list.length;i++){
+    (function(acc){
+      var row = el("div","row-flex");
+      row.appendChild(el("span","chip chip-ok chip-wrap","חשבון מחובר: " + (acc.email || "(ללא מייל)")));
+      var since = localDayOfISO(acc.updatedAt);
+      if (since) row.appendChild(el("span","lbl","מאז " + isoDateText(since)));
+      var btn = el("button","btn btn-quiet btn-sm","נתק");
+      btn.type = "button";
+      twoStep(btn, "נתק", "לנתק? לחצי שוב", function(){ forgetLinkUid(acc.uid); });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    })(list[i]);
+  }
 }
 
 /* ---------- הבחירות של הלקוח/ה (responses/{token}) ---------- */
@@ -3503,6 +3583,9 @@ function subscribeSnapshots(){
       if (doc && doc.metadata && doc.metadata.hasPendingWrites) return;
       applySettingsSnapshot(doc);
     }, function(err){ cloudStreamFailed(err); }));
+    /* חשבונות מקושרים (22.8.2026) — שגיאה בשקט ולא cloudStreamFailed: לפני שהחוק של links
+       מפורסם, permission-denied כאן אסור שינתק את המנהלת */
+    cloudUnsubs.push(fbDb.collection("links").onSnapshot(function(snap){ applyLinksSnapshot(snap); }, function(){}));
   } catch(e){}
 }
 
@@ -3743,6 +3826,7 @@ function deleteShareIfPublished(id){
   cloudForgetShareToken(id);
   sharesCollection().doc(token).delete().catch(function(){});
   purgeResponses(token);
+  forgetLinksForToken(token);   /* גם החשבונות שחוברו לקישור (22.8.2026) */
   return token;
 }
 
@@ -4081,6 +4165,8 @@ function renderClients(){
       if (cloudMode === "on"){
         var hasLink = shareTokenOf(c.id) !== "";
         meta.appendChild(el("span", "chip " + (hasLink ? "chip-ok" : "chip-neutral"), hasLink ? "קישור פעיל" : "אין קישור"));
+        /* צ'יפ חשבון מחובר (22.8.2026) — הלקוחה חיברה חשבון ונכנסת גם בלי הקישור */
+        if (hasLink && linksForToken(shareTokenOf(c.id)).length) meta.appendChild(el("span", "chip chip-ok", "חשבון מחובר"));
       }
       main.appendChild(meta);
       row.appendChild(main);
@@ -4976,6 +5062,7 @@ function revokeShare(client){
     if (cloudSettingsCache) delete cloudSettingsCache.shareTokens[id];
     cloudForgetShareToken(id);
     purgeResponses(token);   /* גם ההיסטוריה שנשמרה תחת הטוקן נמחקת (QA 20.8.2026) */
+    forgetLinksForToken(token);   /* וגם החשבונות שחוברו לקישור (22.8.2026) */
     settingsDirty = true;
     schedulePush();
     refreshShareCard();
@@ -5031,6 +5118,7 @@ function refreshShareCard(){
       ? "כדי לפרסם קישור ללקוחה צריך להתחבר — לחצי \"התחבר עם Google\" למעלה"
       : "שיתוף קישור זמין רק באתר החי (דרוש חיבור לענן)";
   }
+  renderShareAccounts(cloudOn ? token : "");
 }
 
 /* העתקת הקישור: clipboard API, ובדפדפן שחוסם אותו — textarea + execCommand.

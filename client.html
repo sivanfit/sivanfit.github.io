@@ -234,6 +234,15 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .fill-save-note.ok{color:var(--ok); font-weight:700}
 .fill-save-note.bad{color:var(--bad); font-weight:700}
 
+/* ---------- חשבון אישי / מסך כניסה (22.8.2026) ---------- */
+.acct-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.acct-row .btn{white-space:nowrap}
+/* 23.8.2026: כפתור בודד ישירות בתוך .stack — בלי עטיפת row-flex שמשאירה רווח ריק כשהוא מוסתר */
+.btn-solo{align-self:flex-start}
+/* 16px — בלי זום אוטומטי בספארי באייפון (כמו שדות המילוי) */
+.acct-email{flex:1 1 180px; min-width:0; font:inherit; font-size:16px; padding:9px 11px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text)}
+#acctNote:empty,#signinNote:empty{display:none}
+
 /* ---------- alerts + summary ---------- */
 .alert{border:1px solid var(--warn); background:var(--warn-bg); color:var(--warn); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; font-weight:600}
 .alert-bad{border-color:var(--bad); background:var(--bad-bg); color:var(--bad)}
@@ -308,6 +317,21 @@ td.n,th.n{text-align:end; white-space:nowrap}
 #homeCtaCard .lede{color:rgba(255,255,255,.85)}
 #homeCtaCard .btn{background:#FFFFFF; color:#5C4229}
 #homeCtaCard .btn:hover{background:#FFF8EC}
+/* מסך הכניסה (22.8) — כרטיס-גיבור בודד בגרדיאנט הזהב, כפתור לבן */
+#signinCard{background:var(--hero); color:var(--on-hero); width:100%; max-width:560px; margin:0 auto}
+#signinCard .eyebrow{color:rgba(255,255,255,.8)}
+#signinCard .card-title{color:var(--on-hero)}
+#signinCard .lede{color:rgba(255,255,255,.9)}
+#signinCard .btn{background:#FFFFFF; color:#5C4229}
+#signinCard .btn:hover{background:#FFF8EC}
+#signinCard .btn-ghost{background:rgba(255,255,255,.22); color:#FFFFFF}
+#signinCard .btn-ghost:hover{background:rgba(255,255,255,.34); color:#FFFFFF}
+#signinCard .acct-email{border:0}
+#signinCard .fill-save-note{color:#FFF8EC}
+#signinCard .fill-save-note.ok{color:#FFFFFF}
+#signinCard .fill-save-note.bad{color:#FFE3E0}
+#signinCard .note-line{color:rgba(255,255,255,.85); border-top-color:rgba(255,255,255,.35)}
+#acctCard .acct-email{border-color:var(--border)}
 /* ==== SAND-SERIF-END ==== */
 </style>
 </head>
@@ -340,6 +364,37 @@ td.n,th.n{text-align:end; white-space:nowrap}
       <h2 class="card-title" id="errorTitle">הקישור אינו פעיל או שגוי</h2>
     </div>
     <p class="lede" id="errorLede">פנו לסיוון לקבלת קישור מעודכן</p>
+    <button class="btn btn-ghost btn-sm btn-solo hidden" id="btnErrorSignOut" type="button">יציאה מהחשבון</button>
+  </div>
+
+  <!-- מסך כניסה (22.8.2026): כשפותחים את הפורטל בלי קישור אישי — נכנסים עם החשבון שחובר
+       (Google או קישור למייל). מצב-עמוד שלישי לצד הטעינה והשגיאה -->
+  <div class="card stack hidden" id="signinCard">
+    <div>
+      <span class="eyebrow">התוכנית שלי</span>
+      <h2 class="card-title" id="signinTitle">ברוכה הבאה לתוכנית שלך</h2>
+    </div>
+    <p class="lede" id="signinLede">התחברי עם החשבון שחיברת — או פתחי את הקישור האישי שקיבלת מסיוון.</p>
+    <div class="stack-sm" id="signinActions">
+      <div class="row-flex">
+        <button class="btn" id="btnSigninGoogle" type="button">כניסה עם Google</button>
+      </div>
+      <div class="acct-row">
+        <input type="email" id="signinEmailIn" class="acct-email" autocomplete="email" inputmode="email" placeholder="או: המייל שלך">
+        <button class="btn btn-ghost" id="btnSigninEmail" type="button">שלחי לי קישור כניסה</button>
+      </div>
+    </div>
+    <div class="stack-sm hidden" id="signinEmailAsk">
+      <div class="acct-row">
+        <input type="email" id="signinAskEmailIn" class="acct-email" autocomplete="email" inputmode="email" placeholder="המייל שאליו נשלח הקישור">
+        <button class="btn" id="btnSigninEmailGo" type="button">המשך</button>
+      </div>
+      <!-- 23.8.2026: יציאה מהמצב הזה — בלי זה המסך היה מבוי סתום (הכתובת עדיין נושאת את הקישור) -->
+      <button class="btn btn-ghost btn-sm btn-solo" id="btnSigninAskBack" type="button">חזרה</button>
+    </div>
+    <p class="fill-save-note" id="signinNote"></p>
+    <button class="btn btn-ghost btn-sm btn-solo hidden" id="btnSigninSignOut" type="button">יציאה מהחשבון</button>
+    <p class="note-line" id="signinFoot">עוד לא חיברת חשבון? פתחי את הקישור האישי שקיבלת מסיוון ולחצי שם על כפתור "חיבור" — צריך רק פעם אחת, ואז נכנסים בלי הקישור.</p>
   </div>
 
   <div class="stack hidden" id="contentWrap">
@@ -350,6 +405,30 @@ td.n,th.n{text-align:end; white-space:nowrap}
         <h2 class="card-title" id="greetTitle">שלום 👋</h2>
       </div>
       <p class="note-line hidden" id="updatedLine"></p>
+    </section>
+
+    <!-- חשבון אישי (22.8.2026): חיבור חד-פעמי של חשבון Google / מייל לתוכנית — ואז כניסה בלי הקישור.
+         הכרטיס רק מציע; שום דבר לא נכתב בלי לחיצה -->
+    <section class="card stack hidden" id="acctCard" data-view="home">
+      <div>
+        <span class="eyebrow">החשבון שלי</span>
+        <h2 class="card-title" id="acctTitle">רוצה להיכנס בלי הקישור?</h2>
+      </div>
+      <div class="stack-sm" id="acctConnect">
+        <p class="lede" id="acctLede">חיבור חד-פעמי — ואחר כך נכנסים לתוכנית מכל מכשיר, בלי לחפש את הקישור.</p>
+        <div class="row-flex">
+          <button class="btn" id="btnConnectGoogle" type="button">חיבור עם Google</button>
+        </div>
+        <div class="acct-row" id="acctEmailRow">
+          <input type="email" id="acctEmailIn" class="acct-email" autocomplete="email" inputmode="email" placeholder="או: המייל שלך">
+          <button class="btn btn-ghost" id="btnConnectEmail" type="button">שלחי לי קישור למייל</button>
+        </div>
+      </div>
+      <div class="stack-sm hidden" id="acctLinked">
+        <p class="lede" id="acctLinkedText"></p>
+      </div>
+      <p class="fill-save-note" id="acctNote"></p>
+      <button class="btn btn-ghost btn-sm btn-solo hidden" id="btnAcctSignOut" type="button">יציאה מהחשבון</button>
     </section>
 
     <!-- כרטיס-גיבור בבית (21.8): הפעולה היומית — מילוי מה שאכלת -->
@@ -449,17 +528,25 @@ td.n,th.n{text-align:end; white-space:nowrap}
 </div>
 
 <script src="vendor/firebase-app-compat.js"></script>
+<script src="vendor/firebase-auth-compat.js"></script>
 <script src="vendor/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
 /* ============================================================
-   פורטל הלקוח — תצוגה + מילוי עצמי.
+   פורטל הלקוח — תצוגה + מילוי עצמי + חשבון אישי.
    כל הנתונים מגיעים מוכנים מ-shares/{token}: אין כאן שום חישוב תזונתי
    מלבד קק"ל לבחירה עצמית (kcal100 × גרמים ÷ 100, מהקטלוג catalog/main).
-   כתיבות מותרות בעמוד הזה — שתיים בלבד:
-   1. מפתח ערכת הנושא sivan-portal-theme (localStorage).
+   כתיבות מותרות בעמוד הזה:
+   1. localStorage — ארבעה מפתחות משלנו: sivan-portal-theme (ערכת נושא),
+      sivan-portal-token (זיכרון-המכשיר: הטוקן האחרון שנפתח), sivan-portal-email
+      ו-sivan-portal-connect (כוונת-חיבור, "טוקן|מייל"; 23.8.2026 — נקראת רק כשהמייל תואם).
+      בנוסף, ולא בשליטתנו: Firebase Auth שומר לבד את הסשן של אפליקציית "portal"
+      (IndexedDB firebaseLocalStorageDb, ובנפילה-לאחור מפתח localStorage משלו).
    2. הבחירות של הלקוח/ה למסמך responses/{token} (מפתחות v/updatedAt/meals,
       נאכף גם בחוקי האבטחה של Firestore).
+   3. חשבון אישי (22.8.2026): links/{uid} = {v,token,email,updatedAt} — נכתב רק
+      בלחיצה מפורשת על "חיבור" (לעולם לא אוטומטית בכניסה); מאפשר לפתוח את
+      הפורטל בלי הקישור. אין בעמוד הזה update/delete.
    ============================================================ */
 
 /* ---------- helpers ---------- */
@@ -565,19 +652,41 @@ function refreshPortalNav(){
 function showError(kind){
   show($("loadingCard"), false);
   show($("contentWrap"), false);
+  show($("signinCard"), false);
+  hidePortalNav();
   if (kind === "offline"){
     $("errorTitle").textContent = "לא הצלחנו להתחבר";
     $("errorLede").textContent = "נראה שיש בעיית אינטרנט רגעית — בדקו את החיבור ורעננו את הדף";
+  } else if (kind === "gone"){
+    /* 22.8.2026: נכנסנו דרך חשבון מחובר / זיכרון-המכשיר והטוקן כבר לא קיים (חודש או בוטל) */
+    $("errorTitle").textContent = "התוכנית לא זמינה כרגע";
+    $("errorLede").textContent = "נראה שהקישור חודש או בוטל — פני לסיוון לקבלת קישור חדש";
   } else {
     $("errorTitle").textContent = "הקישור אינו פעיל או שגוי";
     $("errorLede").textContent = "פנו לסיוון לקבלת קישור מעודכן";
   }
+  show($("btnErrorSignOut"), kind === "gone" && AUTH_USER !== null);
   show($("errorCard"), true);
 }
 function showContent(){
   show($("loadingCard"), false);
   show($("errorCard"), false);
+  show($("signinCard"), false);
   show($("contentWrap"), true);
+}
+function showLoading(){
+  show($("errorCard"), false);
+  show($("signinCard"), false);
+  show($("contentWrap"), false);
+  hidePortalNav();
+  show($("loadingCard"), true);
+}
+/* בר הטאבים שייך רק לתוכנית מוצגת — במסכי כניסה/שגיאה הוא יורד */
+function hidePortalNav(){
+  var nav = $("portalNav");
+  if (nav) nav.classList.add("hidden");
+  var app = document.querySelector(".app");
+  if (app) app.classList.remove("has-nav");
 }
 
 /* ---------- רינדור ---------- */
@@ -592,6 +701,18 @@ var CATALOG_READY = false;
 var ACTIVE_MENU_IDX = 0;
 var FILL_CHOICES = {};       /* "menuIdx:mealIdx" → מערך {name, grams, kcal100, free} */
 var SAVED_AT = "";           /* updatedAt של המסמך השמור בענן */
+
+/* ---------- חשבון אישי (22.8.2026): מצב ---------- */
+var PORTAL_AUTH = null;      /* auth של אפליקציית "portal" — null כשה-SDK לא נטען */
+var AUTH_USER = null;        /* המשתמשת המחוברת ב-Firebase Auth (אם יש) */
+var LINKED_TOKEN = null;     /* הטוקן שמקושר לחשבון המחובר (links/{uid}): "" = אין, null = עוד לא ידוע */
+var TOKEN_SOURCE = "";       /* מאיפה הגיע הטוקן המוצג: "hash" | "account" | "device" */
+var SHARE = null;            /* מסמך השיתוף המוצג */
+var ENTRY_MODE = "auto";     /* "hash" = נפתח מקישור · "emaillink" = באמצע השלמת כניסה ממייל · "auto" = לפי חשבון/מכשיר */
+var EMAIL_LINK_CT = "";      /* הטוקן שנסע בקישור המייל (?ct=) */
+var AUTH_FIRST = true;       /* ההודעה הראשונה מ-onAuthStateChanged טרם הגיעה */
+var AUTH_WAIT_OVER = false;  /* 23.8.2026: נגמר הזמן שמחכים ל-Auth — כרטיס החשבון נחשף גם בלי תשובה */
+var LOAD_SEQ = 0;            /* מונה טעינות — טעינה מאוחרת יותר תמיד גוברת */
 
 function fillKey(menuIdx, mealIdx){ return menuIdx + ":" + mealIdx; }
 
@@ -1149,6 +1270,7 @@ function updateStaleNote(){
 function saveChoices(){
   if (!PORTAL_DB || !PORTAL_TOKEN || SAVING) return;
   if (!PORTAL_MENUS.length) return;
+  var tok = PORTAL_TOKEN;   /* 23.8.2026: הטוקן שאליו השמירה הזו שייכת (ראו הבדיקה ב-then) */
   /* QA 20.8.2026: נשמרות הבחירות של *כל* התפריטים (לא רק המוצג) — קודם, שמירה
      בתפריט אחד דרסה בשקט את הבחירות של התפריט השני. כל ארוחה נושאת את שם
      התפריט שלה (menu) כדי שהשחזור יידע לשייך נכון */
@@ -1186,6 +1308,9 @@ function saveChoices(){
     latestRef.collection("days").doc(localDayISO()).set(payload)
   ]).then(function(){
     SAVING = false;
+    /* 23.8.2026: בזמן הכתיבה יכולה הייתה להתחלף התוכנית המוצגת (זיכרון-מכשיר→חשבון, קישור אחר
+       באותו טאב) — החותמת וההודעה שייכות לשיתוף שנשמר, ואסור להטביע אותן על החדש */
+    if (PORTAL_TOKEN !== tok){ refreshSaveBar(); return; }
     SAVED_AT = when;
     refreshSaveBar();
     updateStaleNote();
@@ -1197,6 +1322,7 @@ function saveChoices(){
   }).catch(function(){
     SAVING = false;
     refreshSaveBar();
+    if (PORTAL_TOKEN !== tok) return;
     note.textContent = "השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב";
     note.className = "fill-save-note bad";
   });
@@ -1290,6 +1416,7 @@ function applyResponse(snap, shareData){
 function renderShare(data){
   var d = objOf(data);
   if (!d){ showError(); return; }
+  SHARE = d;
   showContent();
   renderGreeting(d);
   renderTargets(d.targets);
@@ -1300,6 +1427,7 @@ function renderShare(data){
   /* קטלוג שנכשל בטעינה כשיש ארוחות — אומרים ללקוחה במקום להעלים את אזור המילוי */
   show($("catalogFailNote"), shareHasMeals(d) && !CATALOG_READY);
   show($("homeCtaCard"), PORTAL_MENUS.length > 0 && CATALOG_READY);
+  refreshAcctCard();
   refreshPortalNav();
 }
 
@@ -1331,34 +1459,427 @@ function shareToken(){
   var m = String(location.hash || "").match(/[#&]t=([a-z0-9]{20,})/);
   return m ? m[1] : "";
 }
+/* הטוקן שנסע בקישור הכניסה למייל (?ct= — query ולא hash, כי Firebase מוסיף פרמטרים משלו לכתובת) */
+function connectTokenFromUrl(){
+  var m = String(location.search || "").match(/[?&]ct=([a-z0-9]{20,})/);
+  return m ? m[1] : "";
+}
+function validToken(t){ return /^[a-z0-9]{20,}$/.test(String(t || "")); }
+
+/* זיכרון-המכשיר (22.8.2026): הטוקן האחרון שנפתח במכשיר הזה — מאפשר לפתוח את הפורטל
+   בלי הקישור (ובסיס להתקנה כאפליקציה). אותה רמת אמון כמו סימנייה של הקישור */
+function deviceToken(){
+  var t = "";
+  try { t = textOf(window.localStorage.getItem("sivan-portal-token")); } catch (e){ t = ""; }
+  return validToken(t) ? t : "";
+}
+function rememberToken(t){
+  if (!validToken(t)) return;
+  try { window.localStorage.setItem("sivan-portal-token", t); } catch (e){}
+}
+function forgetDevice(){
+  try {
+    window.localStorage.removeItem("sivan-portal-token");
+    window.localStorage.removeItem("sivan-portal-connect");
+    window.localStorage.removeItem("sivan-portal-email");
+  } catch (e){}
+}
+/* כוונת-חיבור מקומית, בפורמט "טוקן|מייל" (23.8.2026). קשירה למייל: הכוונה מוחזרת רק
+   כשהיא נכתבה עבור אותה כתובת שמשלימה עכשיו את הכניסה — אחרת כוונה ישנה במכשיר משותף
+   (או חשבון שני של אותה לקוחה) הייתה מחברת את החשבון הלא-נכון לתוכנית הלא-נכונה.
+   ערך ישן בלי "|" נחשב לא-תקף במכוון */
+function readConnectIntent(email){
+  var raw = "";
+  try { raw = textOf(window.localStorage.getItem("sivan-portal-connect")); } catch (e){ raw = ""; }
+  var cut = raw.indexOf("|");
+  if (cut < 0) return "";
+  var t = raw.slice(0, cut);
+  if (!validToken(t)) return "";
+  var want = textOf(email).trim().toLowerCase();
+  return (want !== "" && raw.slice(cut + 1).trim().toLowerCase() === want) ? t : "";
+}
+function forgetConnectIntent(){
+  try { window.localStorage.removeItem("sivan-portal-connect"); } catch (e){}
+}
+function emailOf(user){
+  return textOf(user && user.email) || "החשבון שלך";
+}
+function setNote(id, text, cls){
+  var node = $(id);
+  if (!node) return;
+  node.textContent = text || "";
+  node.className = "fill-save-note" + (cls ? " " + cls : "");
+}
+function validEmail(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || "")); }
+
+/* טעינת מסמך השיתוף והציור — הגוף המקורי של boot. source = מאיפה הגיע הטוקן
+   ("hash" מהקישור · "account" מחשבון מחובר · "device" מזיכרון-המכשיר) */
+function loadShare(token, source){
+  if (!PORTAL_DB || !validToken(token)){ showError(); return; }
+  if (PORTAL_TOKEN === token && SHARE){ refreshAcctCard(); return; }   /* כבר מוצג */
+  /* 23.8.2026: איפוס כל המצב שתלוי בשיתוף. העמוד יודע לטעון עכשיו יותר משיתוף אחד בחיים שלו
+     (זיכרון-מכשיר→חשבון מקושר, קישור אחר באותו טאב) — בלי האיפוס הבחירות, שעת השמירה,
+     הקטלוג והטאב הפעיל של הלקוחה הקודמת נשארים על המסך ואף נשמרים לתוכנית החדשה */
+  SHARE = null; FILL_CHOICES = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
+  PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
+  PORTAL_TOKEN = token;
+  TOKEN_SOURCE = source || "hash";
+  var seq = ++LOAD_SEQ;
+  showLoading();
+  PORTAL_DB.collection("shares").doc(token).get().then(function(snap){
+    if (seq !== LOAD_SEQ) return;   /* בינתיים התחילה טעינה חדשה יותר */
+    if (!snap || !snap.exists){
+      /* המסמך באמת לא קיים — קישור שגוי/בוטל. מחשבון/זיכרון-מכשיר → "התוכנית לא זמינה" + ניקוי */
+      if (TOKEN_SOURCE === "hash"){ showError(); return; }
+      PORTAL_TOKEN = ""; TOKEN_SOURCE = "";
+      forgetDevice();
+      showError("gone");
+      return;
+    }
+    rememberToken(token);
+    var data = snap.data();
+    if (!shareHasMeals(data)){
+      try { renderShare(data); } catch (e){ showError(); }
+      return;
+    }
+    /* יש ארוחות — טוענים קטלוג ובחירות קודמות לפני הציור;
+       כישלון בהם לא מפיל את העמוד, רק מציג בלי אזור המילוי */
+    return Promise.all([
+      PORTAL_DB.collection("catalog").doc("main").get().then(null, function(){ return null; }),
+      PORTAL_DB.collection("responses").doc(token).get().then(null, function(){ return null; })
+    ]).then(function(res){
+      if (seq !== LOAD_SEQ) return;
+      try { applyCatalog(res[0]); } catch (e){}
+      try { applyResponse(res[1], data); } catch (e){}
+      try { renderShare(data); } catch (e){ showError(); }
+    });
+  }).catch(function(){ if (seq === LOAD_SEQ) showError("offline"); });   /* get נכשל = רשת/שירות, לא קישור שגוי */
+}
+
+/* ---------- חשבון אישי (22.8.2026) ----------
+   הלקוחה מחברת חשבון בעצמה מתוך הקישור (Google בחלון קופץ, או קישור כניסה למייל);
+   מאז אפשר לפתוח את client.html בלי טוקן: links/{uid} → הטוקן → התוכנית.
+   עקרונות: הקישורים עם טוקן ממשיכים לעבוד · שום כתיבה אוטומטית · אין redirect
+   (נשבר ב-Safari כש-authDomain אינו הדומיין של הדף) · כישלון בחשבון לא חוסם תוכנית */
+
+/* מאזין יחיד למצב ההתחברות: ההודעה הראשונה מכריעה איך נכנסים כשאין קישור;
+   אחר כך רק מרעננים את כרטיס החשבון. לעולם לא כותב links מעצמו */
+function startAuthWatch(){
+  PORTAL_AUTH.onAuthStateChanged(function(user){
+    var first = AUTH_FIRST;
+    AUTH_FIRST = false;
+    AUTH_USER = user || null;
+    LINKED_TOKEN = user ? null : "";
+    if (!user){ onAuthResolved(null, "", first); return; }
+    fetchLinkedToken(user).then(function(t){
+      if (AUTH_USER !== user) return;   /* התחלפה בינתיים */
+      if (LINKED_TOKEN === null) LINKED_TOKEN = t;   /* 23.8: writeLink שהסתיים בינתיים גובר על הערך הישן */
+      onAuthResolved(user, LINKED_TOKEN, first);
+    });
+  }, function(){
+    var first = AUTH_FIRST;
+    AUTH_FIRST = false;
+    onAuthResolved(null, "", first);
+  });
+}
+/* links/{uid} של המשתמשת — כישלון (חוקים חסרים / אופליין) = "לא מקושר", אף פעם לא חוסם.
+   עם תקרת זמן, כדי שהספינר לא יישאר לנצח */
+function fetchLinkedToken(user){
+  if (!PORTAL_DB || !user) return Promise.resolve("");
+  var get = PORTAL_DB.collection("links").doc(user.uid).get().then(function(snap){
+    var d = (snap && snap.exists) ? objOf(snap.data()) : null;
+    var t = d ? textOf(d.token) : "";
+    return validToken(t) ? t : "";
+  }, function(){ return ""; });
+  var late = new Promise(function(resolve){ setTimeout(function(){ resolve(""); }, 6000); });
+  return Promise.race([get, late]);
+}
+/* ההחלטה: כשמוצגת תוכנית (או שנפתחנו מקישור) — רק הכרטיס; אחרת חשבון מקושר → טוענים;
+   אין קישור → זיכרון-מכשיר, ואם אין → מסך הכניסה */
+function onAuthResolved(user, t, first){
+  if (ENTRY_MODE === "emaillink"){ return; }
+  if (PORTAL_TOKEN){
+    /* חשבון מקושר גובר על זיכרון-מכשיר (מכשיר משותף) — רק בהכרעה הראשונה; אחרי כן
+       כניסה מדף-מכשיר באה מלחיצת "חיבור" בכרטיס, ואסור שתמשוך לתוכנית אחרת (23.8) */
+    if (first && t && TOKEN_SOURCE === "device" && t !== PORTAL_TOKEN){ loadShare(t, "account"); return; }
+    refreshAcctCard();
+    return;
+  }
+  if (t){ loadShare(t, "account"); return; }
+  if (first){ fallbackEntry(user); return; }
+  if (user) showSignIn("notlinked", emailOf(user)); else showSignIn();
+}
+function fallbackEntry(user){
+  var dev = deviceToken();
+  if (dev){ loadShare(dev, "device"); return; }
+  if (user) showSignIn("notlinked", emailOf(user)); else showSignIn();
+}
+
+function showSignIn(state, extra){
+  show($("loadingCard"), false);
+  show($("contentWrap"), false);
+  show($("errorCard"), false);
+  hidePortalNav();
+  var askMode = state === "askEmail", notLinked = state === "notlinked";
+  show($("signinActions"), !askMode && !notLinked);
+  show($("signinEmailAsk"), askMode);
+  show($("btnSigninSignOut"), notLinked);
+  show($("signinFoot"), !askMode && !notLinked);
+  if (notLinked){
+    $("signinTitle").textContent = "החשבון עדיין לא מחובר לתוכנית";
+    $("signinLede").textContent = "מחוברת כ-" + extra + ", אבל החשבון עוד לא חובר לתוכנית. פתחי את הקישור האישי שקיבלת מסיוון ולחצי שם על כפתור \"חיבור\" — צריך רק פעם אחת, ואז נכנסים בלי הקישור.";
+  } else if (askMode){
+    $("signinTitle").textContent = "עוד צעד קטן";
+    $("signinLede").textContent = "כדי להשלים את הכניסה, כתבי את המייל שאליו נשלח הקישור.";
+  } else {
+    $("signinTitle").textContent = "ברוכה הבאה לתוכנית שלך";
+    $("signinLede").textContent = "התחברי עם החשבון שחיברת — או פתחי את הקישור האישי שקיבלת מסיוון.";
+  }
+  setNote("signinNote", "", "");
+  show($("signinCard"), true);
+}
+
+/* כרטיס החשבון בבית — שלושה מצבים: לא מחוברת (הצעה) · מחוברת ומקושרת לתוכנית הזו ·
+   מחוברת לחשבון שמקושר לתוכנית אחרת / לא מקושר (הצעה לחבר לכאן) */
+function refreshAcctCard(){
+  var card = $("acctCard");
+  if (!card) return;
+  if (!PORTAL_AUTH || !PORTAL_TOKEN || !SHARE){ show(card, false); return; }
+  /* 23.8.2026: עד ההודעה הראשונה מ-Auth לא יודעים אם היא מחוברת — עדיף כרטיס חבוי מהצעת
+     "חיבור עם Google" שמהבהבת ומתחלפת ל-"החשבון מחובר ✓". AUTH_WAIT_OVER (טיימר ב-boot)
+     דואג שאתחול Auth תקוע לא יסתיר את הכרטיס לנצח */
+  if (AUTH_FIRST && !AUTH_WAIT_OVER){ show(card, false); return; }
+  var user = AUTH_USER;
+  if (user !== null && LINKED_TOKEN === null){ show(card, false); return; }   /* עוד בודקים את הקישור */
+  var linkedHere = user !== null && LINKED_TOKEN === PORTAL_TOKEN;
+  show($("acctConnect"), !linkedHere);
+  show($("acctLinked"), linkedHere);
+  show($("btnAcctSignOut"), user !== null);
+  show($("acctEmailRow"), user === null);
+  if (linkedHere){
+    $("acctTitle").textContent = "החשבון מחובר ✓";
+    $("acctLinkedText").textContent = "מחוברת כ-" + emailOf(user) + " — מעכשיו אפשר להיכנס לתוכנית גם בלי הקישור, מכל מכשיר.";
+  } else if (user !== null){
+    $("acctTitle").textContent = "לחבר את החשבון לתוכנית הזו?";
+    $("acctLede").textContent = (LINKED_TOKEN && LINKED_TOKEN !== PORTAL_TOKEN)
+      ? "החשבון " + emailOf(user) + " מחובר לתוכנית אחרת — לחבר אותו לתוכנית הזו במקום?"
+      : "מחוברת כ-" + emailOf(user) + " — לחיצה אחת מחברת את החשבון לתוכנית הזו, ומהפעם הבאה נכנסים בלי הקישור.";
+    /* 23.8.2026: התווית מתחילה תמיד ב-"חיבור", כי ההוראות (בפורטל ובדשבורד) מצטטות
+       כפתור בשם הזה; המייל מופיע ב-lede ולא על הכפתור (כתובות ארוכות מתחו את הגלולה) */
+    $("btnConnectGoogle").textContent = "חיבור החשבון לתוכנית הזו";
+  } else {
+    $("acctTitle").textContent = "רוצה להיכנס בלי הקישור?";
+    $("acctLede").textContent = (TOKEN_SOURCE === "device")
+      ? "נכנסת מהזיכרון של המכשיר הזה. חיבור חד-פעמי של חשבון — ואפשר להיכנס גם מכל מכשיר אחר."
+      : "חיבור חד-פעמי — ואחר כך נכנסים לתוכנית מכל מכשיר, בלי לחפש את הקישור.";
+    $("btnConnectGoogle").textContent = "חיבור עם Google";
+  }
+  show(card, true);
+}
+
+/* כתיבת links/{uid} — רק מפעולה מפורשת של הלקוחה (לחיצה על "חיבור", או השלמת קישור-מייל שנשלח לחיבור) */
+function writeLink(user){
+  if (!PORTAL_DB || !validToken(PORTAL_TOKEN) || !user) return Promise.resolve(false);
+  var tok = PORTAL_TOKEN;   /* 23.8.2026: הטוקן שנכתב — לא מה שיוצג כשהכתיבה תסתיים */
+  setNote("acctNote", "מחברים את החשבון...", "");
+  var payload = {v:1, token:tok, email:textOf(user.email), updatedAt:new Date().toISOString()};
+  return PORTAL_DB.collection("links").doc(user.uid).set(payload).then(function(){
+    LINKED_TOKEN = tok;
+    rememberToken(tok);
+    forgetConnectIntent();
+    setNote("acctNote", "", "");
+    refreshAcctCard();
+    return true;
+  }, function(err){
+    /* 23.8.2026: כל עוד חוקי links לא פורסמו (וגם כשהטוקן כבר לא קיים ב-shares) Firestore
+       מחזיר permission-denied — לשלוח את הלקוחה לבדוק את האינטרנט זה מסלול שגוי לגמרי */
+    var code = (err && err.code) ? err.code : "";
+    if (code === "permission-denied") setNote("acctNote", "החיבור לא זמין כרגע — נסי שוב מאוחר יותר, ואם זה חוזר פני לסיוון", "bad");
+    else setNote("acctNote", "לא הצלחנו לחבר כרגע — בדקי חיבור לאינטרנט ונסי שוב", "bad");
+    if (LINKED_TOKEN === null) LINKED_TOKEN = "";   /* שהכרטיס (וההודעה) לא ייעלמו בזמן שעוד "בודקים" */
+    refreshAcctCard();
+    return false;
+  });
+}
+
+/* חלון Google (popup בלבד) — onUser מקבל את המשתמשת; ההודעות ל-noteId */
+function googlePopup(onUser, noteId){
+  var provider = new firebase.auth.GoogleAuthProvider();
+  PORTAL_AUTH.signInWithPopup(provider).then(function(res){
+    var user = (res && res.user) ? res.user : PORTAL_AUTH.currentUser;
+    if (user) onUser(user);
+  }, function(err){
+    var code = (err && err.code) ? err.code : "";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request"){ setNote(noteId, "", ""); return; }
+    if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment"){
+      setNote(noteId, "הדפדפן חסם את חלון ההתחברות — נסי שוב, או בחרי בקישור למייל", "bad"); return;
+    }
+    if (code === "auth/unauthorized-domain"){ setNote(noteId, "הכתובת הזו לא מאושרת לכניסה — פני לסיוון", "bad"); return; }
+    setNote(noteId, "לא הצלחנו להתחבר כרגע — נסי שוב, או בחרי בקישור למייל", "bad");
+  });
+}
+function connectGoogle(){
+  if (!PORTAL_AUTH || !PORTAL_TOKEN) return;
+  if (AUTH_USER){ writeLink(AUTH_USER); return; }   /* כבר מחוברת לחשבון — רק מקשרים לתוכנית הזו */
+  setNote("acctNote", "מתחברים...", "");
+  googlePopup(function(user){ AUTH_USER = user; writeLink(user); }, "acctNote");
+}
+
+/* שליחת קישור כניסה למייל (Email-link, בלי סיסמה). ct = הטוקן לחיבור — נוסע בכתובת החזרה,
+   כך שהחיבור מושלם גם כשהמייל נפתח בדפדפן/מכשיר אחר */
+function portalPageUrl(){ return location.origin + location.pathname; }
+function sendEmailLink(email, ct, noteId){
+  var e = textOf(email).trim();
+  if (!validEmail(e)){ setNote(noteId, "כתבי כתובת מייל תקינה", "bad"); return; }
+  if (!PORTAL_AUTH){ setNote(noteId, "ההתחברות לא זמינה כרגע — נסי לרענן את הדף", "bad"); return; }
+  try { window.localStorage.setItem("sivan-portal-email", e); } catch (err){}
+  /* 23.8.2026: הכוונה נשמרת יחד עם המייל שביקש אותה; שליחת קישור כניסה רגיל (בלי ct)
+     מוחקת כוונה ישנה — כניסה סתמית לא תגרור חיבור אוטומטי לתוכנית כלשהי */
+  if (ct){ try { window.localStorage.setItem("sivan-portal-connect", ct + "|" + e); } catch (err){} }
+  else forgetConnectIntent();
+  setNote(noteId, "שולחים...", "");
+  PORTAL_AUTH.sendSignInLinkToEmail(e, {url: portalPageUrl() + (ct ? "?ct=" + ct : ""), handleCodeInApp:true}).then(function(){
+    setNote(noteId, "שלחנו קישור ל-" + e + " ✉️ — פתחי את המייל ולחצי על הקישור. לא הגיע? בדקי בספאם", "ok");
+  }, function(err){
+    var code = (err && err.code) ? err.code : "";
+    if (code === "auth/operation-not-allowed") setNote(noteId, "הכניסה דרך מייל עדיין לא פעילה — נסי עם Google", "bad");
+    else if (code === "auth/invalid-email") setNote(noteId, "כתבי כתובת מייל תקינה", "bad");
+    else if (code === "auth/unauthorized-continue-uri" || code === "auth/unauthorized-domain") setNote(noteId, "הכתובת הזו לא מאושרת לכניסה — פני לסיוון", "bad");
+    else setNote(noteId, "השליחה נכשלה — בדקי חיבור לאינטרנט ונסי שוב", "bad");
+  });
+}
+/* נחיתה מקישור המייל: המייל מהמכשיר הזה, או שאלה (נפתח בדפדפן אחר) */
+function finishEmailLink(){
+  var email = "";
+  try { email = textOf(window.localStorage.getItem("sivan-portal-email")).trim(); } catch (e){ email = ""; }
+  if (!validEmail(email)){ showSignIn("askEmail"); return; }
+  completeEmailLink(email);
+}
+function cleanUrl(token){
+  try { history.replaceState(null, "", location.pathname + (token ? "#t=" + token : "")); } catch (e){}
+}
+function afterAccountSignIn(user){
+  fetchLinkedToken(user).then(function(t){
+    LINKED_TOKEN = t;
+    if (t) loadShare(t, "account"); else fallbackEntry(user);
+  });
+}
+function completeEmailLink(email){
+  var intent = readConnectIntent(email);
+  var ct = EMAIL_LINK_CT || intent;
+  showLoading();
+  PORTAL_AUTH.signInWithEmailLink(email, location.href).then(function(res){
+    AUTH_USER = (res && res.user) ? res.user : PORTAL_AUTH.currentUser;
+    ENTRY_MODE = "auto";
+    cleanUrl(ct);
+    if (ct && AUTH_USER){
+      /* התוכנית שנסעה בקישור נטענת כמו מקישור רגיל.
+         23.8.2026: ?ct= לבדו כבר לא מספיק כדי לכתוב links/{uid} — מי שמחזיק טוקן אחד יכול
+         לבקש מ-Firebase קישור-כניסה לכתובת של מישהי אחרת עם ct משלו. כותבים רק כשהמכשיר הזה
+         באמת ביקש לחבר את המייל הזה לטוקן הזה; אחרת רק מציגים, והכרטיס יבקש אישור בלחיצה */
+      var u = AUTH_USER;
+      PORTAL_TOKEN = ct;
+      ENTRY_MODE = "hash";
+      SHARE = null;
+      if (intent === ct){ writeLink(u).then(function(){ loadShare(ct, "hash"); }); return; }
+      /* בלי כתיבה — עדיין צריך לדעת אם החשבון כבר מקושר, אחרת הכרטיס נשאר חבוי */
+      if (LINKED_TOKEN === null){
+        fetchLinkedToken(u).then(function(t){ if (AUTH_USER === u){ LINKED_TOKEN = t; refreshAcctCard(); } });
+      }
+      loadShare(ct, "hash");
+      return;
+    }
+    if (AUTH_USER) afterAccountSignIn(AUTH_USER); else fallbackEntry(null);
+  }, function(err){
+    var code = (err && err.code) ? err.code : "";
+    var cur = PORTAL_AUTH.currentUser;
+    if (code === "auth/invalid-email" && !cur){
+      /* 23.8.2026: מייל שגוי — הקישור עצמו עדיין תקף; לא מוחקים אותו מהכתובת, שואלים שוב */
+      showSignIn("askEmail");
+      setNote("signinNote", "המייל לא תואם לקישור — בדקי את הכתובת ונסי שוב", "bad");
+      return;
+    }
+    ENTRY_MODE = "auto";
+    cleanUrl("");
+    if (cur){   /* הקישור כבר נוצל (רענון) אבל מחוברת — ממשיכים כרגיל */
+      AUTH_USER = cur;
+      afterAccountSignIn(cur);
+      return;
+    }
+    showSignIn();
+    if (code === "auth/invalid-action-code") setNote("signinNote", "הקישור כבר נוצל או אינו תקין — שלחי קישור חדש", "bad");
+    else if (code === "auth/expired-action-code") setNote("signinNote", "הקישור פג תוקף — שלחי קישור חדש", "bad");
+    else if (code === "auth/operation-not-allowed") setNote("signinNote", "הכניסה דרך מייל עדיין לא פעילה — נסי עם Google", "bad");
+    else setNote("signinNote", "הכניסה נכשלה — בדקי חיבור לאינטרנט ונסי שוב", "bad");
+  });
+}
+
+function signOutPortal(){
+  if (PORTAL_AUTH){ PORTAL_AUTH.signOut().catch(function(){}); }
+  AUTH_USER = null; LINKED_TOKEN = "";
+  forgetDevice();
+  setNote("acctNote", "", "");
+  if (ENTRY_MODE === "hash" && PORTAL_TOKEN && SHARE){ refreshAcctCard(); return; }   /* עם קישור ביד — נשארים בתוכנית */
+  PORTAL_TOKEN = ""; SHARE = null; TOKEN_SOURCE = "";
+  showSignIn();
+}
+
+function wireAuthButtons(){
+  var b;
+  b = $("btnConnectGoogle"); if (b) b.addEventListener("click", connectGoogle);
+  b = $("btnConnectEmail"); if (b) b.addEventListener("click", function(){ sendEmailLink($("acctEmailIn").value, PORTAL_TOKEN, "acctNote"); });
+  b = $("btnAcctSignOut"); if (b) b.addEventListener("click", signOutPortal);
+  b = $("btnErrorSignOut"); if (b) b.addEventListener("click", signOutPortal);
+  b = $("btnSigninSignOut"); if (b) b.addEventListener("click", signOutPortal);
+  b = $("btnSigninGoogle"); if (b) b.addEventListener("click", function(){
+    if (!PORTAL_AUTH) return;
+    setNote("signinNote", "מתחברים...", "");
+    /* ההמשך דרך המאזין: חשבון מקושר → התוכנית; אחרת "עדיין לא מחובר" */
+    googlePopup(function(){ setNote("signinNote", "בודקים את החשבון...", ""); }, "signinNote");
+  });
+  b = $("btnSigninEmail"); if (b) b.addEventListener("click", function(){ sendEmailLink($("signinEmailIn").value, "", "signinNote"); });
+  /* 23.8.2026: יציאה ממסך "כתבי את המייל" — מנקים את פרמטרי הקישור שנוצל וחוזרים למסך הכניסה
+     (ENTRY_MODE חוזר ל-auto, אחרת המאזין של Auth היה ממשיך להתעלם מכל כניסה) */
+  b = $("btnSigninAskBack"); if (b) b.addEventListener("click", function(){ ENTRY_MODE = "auto"; cleanUrl(""); showSignIn(); });
+  b = $("btnSigninEmailGo"); if (b) b.addEventListener("click", function(){
+    var e = textOf($("signinAskEmailIn").value).trim();
+    if (!validEmail(e)){ setNote("signinNote", "כתבי כתובת מייל תקינה", "bad"); return; }
+    completeEmailLink(e);
+  });
+}
 
 function boot(){
-  var token = shareToken();
-  if (!token || typeof firebase === "undefined" || !window.SIVAN_FIREBASE_CONFIG){ showError(); return; }
+  if (typeof firebase === "undefined" || !window.SIVAN_FIREBASE_CONFIG){ showError(); return; }
   try {
-    firebase.initializeApp(window.SIVAN_FIREBASE_CONFIG);
-    PORTAL_TOKEN = token;
-    PORTAL_DB = firebase.firestore();
-    PORTAL_DB.collection("shares").doc(token).get().then(function(snap){
-      if (!snap || !snap.exists){ showError(); return; }   /* המסמך באמת לא קיים — קישור שגוי/בוטל */
-      var data = snap.data();
-      if (!shareHasMeals(data)){
-        try { renderShare(data); } catch (e){ showError(); }
-        return;
-      }
-      /* יש ארוחות — טוענים קטלוג ובחירות קודמות לפני הציור;
-         כישלון בהם לא מפיל את העמוד, רק מציג בלי אזור המילוי */
-      return Promise.all([
-        PORTAL_DB.collection("catalog").doc("main").get().then(null, function(){ return null; }),
-        PORTAL_DB.collection("responses").doc(token).get().then(null, function(){ return null; })
-      ]).then(function(res){
-        try { applyCatalog(res[0]); } catch (e){}
-        try { applyResponse(res[1], data); } catch (e){}
-        try { renderShare(data); } catch (e){ showError(); }
-      });
-    }).catch(function(){ showError("offline"); });   /* get נכשל = רשת/שירות, לא קישור שגוי */
-  } catch (e){ showError(); }
+    /* אפליקציה בשם "portal" (22.8.2026): הפורטל והדשבורד יושבים באותו origin — בלי שם נפרד
+       סשן ה-Auth היה משותף (סיוון "מחוברת" בכל קישור לקוחה, והתנתקות כאן מנתקת את הדשבורד) */
+    var app = firebase.initializeApp(window.SIVAN_FIREBASE_CONFIG, "portal");
+    PORTAL_DB = app.firestore();
+    try { PORTAL_AUTH = (typeof app.auth === "function") ? app.auth() : null; } catch (e){ PORTAL_AUTH = null; }
+    if (PORTAL_AUTH){ try { PORTAL_AUTH.useDeviceLanguage(); } catch (e){} }
+  } catch (e){ showError(); return; }
+  wireAuthButtons();
+  EMAIL_LINK_CT = connectTokenFromUrl();
+  var token = shareToken();
+  var fromEmail = false;
+  if (PORTAL_AUTH){ try { fromEmail = PORTAL_AUTH.isSignInWithEmailLink(location.href); } catch (e){ fromEmail = false; } }
+  if (fromEmail) ENTRY_MODE = "emaillink";
+  else if (token) ENTRY_MODE = "hash";
+  if (PORTAL_AUTH) startAuthWatch();
+  /* 23.8.2026: תקרה אחת ל"עוד מחכים להודעה הראשונה מ-Auth" — אתחול תקוע (iframe/רשת)
+     לא יסתיר את כרטיס החשבון לנצח; אחרי 8 שניות הוא נחשף במצב "לא מחוברת" */
+  if (PORTAL_AUTH) setTimeout(function(){ AUTH_WAIT_OVER = true; refreshAcctCard(); }, 8000);
+  if (fromEmail){ finishEmailLink(); return; }
+  if (token){ loadShare(token, "hash"); return; }
+  if (!PORTAL_AUTH){ fallbackEntry(null); return; }
+  /* בלי קישור: מחכים להודעה הראשונה מ-Auth (עד 4 שניות) — ואז חשבון מקושר / זיכרון-מכשיר / מסך כניסה */
+  setTimeout(function(){ if (AUTH_FIRST && !PORTAL_TOKEN){ fallbackEntry(null); } }, 4000);
 }
+/* קישור חדש שנפתח באותו טאב (שינוי hash בלבד, בלי טעינה מחדש) — טוענים את התוכנית שלו */
+window.addEventListener("hashchange", function(){
+  var t = shareToken();
+  if (t && t !== PORTAL_TOKEN && PORTAL_DB){ ENTRY_MODE = "hash"; SHARE = null; loadShare(t, "hash"); }
+});
 boot();
 </script>
 
