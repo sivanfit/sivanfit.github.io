@@ -131,6 +131,9 @@ button{font:inherit; color:inherit}
 .btn-ghost{background:transparent; color:var(--primary)}
 .btn-ghost:hover{background:var(--primary-soft)}
 .btn-sm{font-size:12.5px; padding:6px 10px; border-radius:8px}
+/* 23.8.2026: כפתור שקט (קישור-טקסט) לשורות משניות — "יציאה מהחשבון" בכרטיס הפתיחה */
+.btn-quiet{background:transparent; color:var(--text-muted); border:0; padding:4px 8px; font-size:12.5px; text-decoration:underline}
+.btn-xs{font-size:12px; padding:3px 8px}
 
 /* ---------- layout ---------- */
 .wrap{max-width:1100px; width:100%; margin:0 auto; padding:18px 16px 28px; display:flex; flex-direction:column; gap:18px; flex:1 1 auto}
@@ -192,6 +195,12 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .t-units{display:block; margin-top:2px; font-size:11.5px; font-weight:500; color:var(--text-soft)}
 .trk-date{white-space:nowrap; font-weight:700}
 .trk-cell{min-width:86px; white-space:nowrap}
+/* מעקב במובייל (23.8.2026): כרטיס לכל תאריך במקום טבלה שגוללת לצדדים */
+.trk-cards{display:flex; flex-direction:column; gap:10px}
+.trk-card{background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; display:flex; flex-direction:column; gap:8px}
+.trk-card-date{font-family:var(--serif); font-size:17px; font-weight:700}
+@media (max-width:719px){ #trackCard .table-scroll{display:none} }
+@media (min-width:720px){ .trk-cards{display:none} }
 
 /* ---------- meal cards ---------- */
 .meal{padding:0; overflow:hidden}
@@ -199,8 +208,16 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .meal-head h3{font-size:14.5px}
 .meal-total{font-size:13px; color:var(--text-muted); font-weight:700; display:flex; gap:8px; align-items:baseline}
 .meal-total b{font-size:17px; color:var(--text)}
-.meal .table-scroll{border:0; border-radius:0}
-.meal table{min-width:430px}
+/* שורות הארוחה (23.8.2026): רשימה מוערמת במקום טבלה — במובייל אין יותר גלילה לצדדים */
+.meal-rows{display:flex; flex-direction:column}
+.meal-row{display:grid; grid-template-columns:1fr auto auto; gap:4px 10px; align-items:baseline; padding:9px 14px; border-bottom:1px solid var(--border)}
+.meal-row:last-child{border-bottom:0}
+.meal-row-sum{background:var(--surface-2); border-top:1px solid var(--border-strong)}
+.mr-name{font-weight:600; font-size:14px; min-width:0; overflow-wrap:anywhere}
+.mr-qty{font-size:12.5px; color:var(--text-muted); white-space:nowrap}
+.mr-kcal{font-weight:800; font-size:14px; white-space:nowrap}
+.mr-kcal small{font-weight:600; font-size:11px; color:var(--text-soft); margin-inline-start:3px}
+.mr-macro{grid-column:1 / -1; font-size:12px; color:var(--text-soft)}
 .sum-head{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; justify-content:space-between}
 .sum-total{display:flex; align-items:baseline; gap:8px}
 .sum-total b{font-size:32px; font-weight:800; letter-spacing:-.01em}
@@ -271,8 +288,31 @@ td.n,th.n{text-align:end; white-space:nowrap}
 /* ---------- alerts + summary ---------- */
 .alert{border:1px solid var(--warn); background:var(--warn-bg); color:var(--warn); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; font-weight:600}
 .alert-bad{border-color:var(--bad); background:var(--bad-bg); color:var(--bad)}
-.summary-points{display:flex; flex-direction:column; gap:5px; font-size:13px; color:var(--text-muted)}
-.summary-points:empty{display:none}
+/* אריחי הסיכום (23.8.2026): הנקודות החשובות כאריחים בטאב "יעדים", לא כרשימת נקודות */
+.sum-tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+.sum-tiles:empty{display:none}
+.sum-tile{background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; display:flex; flex-direction:column; gap:4px; min-width:0}
+.sum-tile-label{font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--text-soft)}
+.sum-tile-text{font-size:13.5px; line-height:1.45}
+
+/* ---------- ההתקדמות שלי (23.8.2026): אריח לכל מדד + גרף קו זעיר ---------- */
+.prog-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+.prog-tile{background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:6px; min-width:0}
+.prog-tile-wide{grid-column:1 / -1}
+.prog-label{font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--text-soft)}
+.prog-value{font-family:var(--serif); font-size:28px; font-weight:700; line-height:1.1}
+.prog-tile-wide .prog-value{font-size:36px}
+.prog-unit{font-size:13px; color:var(--text-muted); margin-inline-start:4px; font-family:var(--sans)}
+.prog-delta{display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; border-radius:999px; padding:2px 9px; background:var(--surface); border:1px solid var(--border); color:var(--text-muted); align-self:flex-start}
+.prog-delta.down{color:var(--ok); background:var(--ok-bg); border-color:var(--ok)}
+.prog-delta.up{color:var(--warn); background:var(--warn-bg); border-color:var(--warn)}
+.prog-chart{width:100%; height:56px; display:block}
+.prog-tile-wide .prog-chart{height:90px}
+/* צבעי הגרף דרך CSS ולא כאטריביוטים — משתני הטוקנים לא נקראים מאטריביוט מצגתי */
+.prog-line{fill:none; stroke:var(--primary-deep); stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.prog-dot{fill:var(--primary-deep)}
+.prog-dot-last{fill:var(--accent-deep)}
+.prog-axis{display:flex; justify-content:space-between; font-size:11px; color:var(--text-soft)}
 
 /* ---------- loading ---------- */
 .loading-row{display:flex; align-items:center; gap:12px}
@@ -307,6 +347,10 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .btn-ghost{background:var(--primary-soft); color:var(--text-muted)}
 .btn-ghost:hover{background:var(--surface-3); color:var(--text)}
 .btn-sm{padding:7px 13px; font-size:12.5px}
+/* 23.8.2026: אחרי .btn של השכבה הזו — אחרת הגלולה הכהה הייתה בולעת את הכפתור השקט */
+.btn-quiet{background:transparent; color:var(--text-muted); padding:4px 8px; text-decoration:underline}
+.btn-quiet:hover{background:transparent; color:var(--text)}
+.btn-xs{padding:3px 8px; font-size:12px}
 .stat-value{font-family:var(--serif); font-size:30px}
 .sum-total b{font-family:var(--serif); font-size:36px}
 .bar-fill{background:linear-gradient(90deg,var(--accent),var(--accent-deep))}
@@ -357,6 +401,11 @@ td.n,th.n{text-align:end; white-space:nowrap}
 #signinCard .fill-save-note.bad{color:#FFE3E0}
 #signinCard .note-line{color:rgba(255,255,255,.85); border-top-color:rgba(255,255,255,.35)}
 #acctCard .acct-email{border-color:var(--border)}
+/* השורה השקטה של החשבון (23.8.2026): צמודה לטקסט, ובלי קו מקווקו שני כשכבר יש אחד מעליה */
+#acctLine{display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px}
+#updatedLine:not(.hidden) + #acctLine{border-top:0; padding-top:0}
+/* צ'יפים על רקע חול של כרטיס המעקב — לבן, אחרת הם נבלעים ברקע */
+.trk-card .chip-neutral{background:var(--surface)}
 #btnSendMeasure{border-radius:999px; padding:12px 20px}
 .meas-grid input,#measDateIn,#measNoteIn{border-color:var(--border)}
 #installCard .btn{border-radius:999px}
@@ -422,7 +471,7 @@ td.n,th.n{text-align:end; white-space:nowrap}
     </div>
     <p class="fill-save-note" id="signinNote"></p>
     <button class="btn btn-ghost btn-sm btn-solo hidden" id="btnSigninSignOut" type="button">יציאה מהחשבון</button>
-    <p class="note-line" id="signinFoot">עוד לא חיברת חשבון? פתחי את הקישור האישי שקיבלת מסיוון ולחצי שם על כפתור "חיבור" — צריך רק פעם אחת, ואז נכנסים בלי הקישור.</p>
+    <p class="note-line" id="signinFoot">אפשר גם לפתוח שוב את הקישור האישי שקיבלת מסיוון.</p>
   </div>
 
   <div class="stack hidden" id="contentWrap">
@@ -433,6 +482,9 @@ td.n,th.n{text-align:end; white-space:nowrap}
         <h2 class="card-title" id="greetTitle">שלום 👋</h2>
       </div>
       <p class="note-line hidden" id="updatedLine"></p>
+      <!-- 23.8.2026 (בקשת סיפי): כשהחשבון כבר מחובר לתוכנית הזו — שורה שקטה כאן
+           במקום כרטיס חשבון שלם; #acctCard נשאר למצבים שבהם באמת צריך לפעול -->
+      <p class="note-line hidden" id="acctLine"><span id="acctLineText"></span> <button class="btn btn-quiet btn-xs" id="btnAcctLineSignOut" type="button">יציאה מהחשבון</button></p>
     </section>
 
     <!-- חשבון אישי (22.8.2026): חיבור חד-פעמי של חשבון Google / מייל לתוכנית — ואז כניסה בלי הקישור.
@@ -528,6 +580,26 @@ td.n,th.n{text-align:end; white-space:nowrap}
       </div>
     </section>
 
+    <!-- ההתקדמות שלי (23.8.2026, בקשת סיפי): טאב "יעדים" הוא מסך מלא של אריחים —
+         היעדים, המדדים לאורך הזמן (גרף זעיר לכל עמודה מספרית) והנקודות החשובות -->
+    <section class="card stack hidden" id="progressCard" data-view="targets">
+      <div>
+        <span class="eyebrow">ההתקדמות שלי</span>
+        <h2 class="card-title">המדדים שלך</h2>
+      </div>
+      <p class="lede">מתעדכן אוטומטית בכל שקילה או מדידה שסיוון מאשרת.</p>
+      <div class="prog-grid" id="progGrid"></div>
+    </section>
+
+    <section class="card stack hidden" id="summaryCard" data-view="targets">
+      <div>
+        <span class="eyebrow">סיכום</span>
+        <h2 class="card-title">נקודות חשובות</h2>
+      </div>
+      <div class="stack-sm" id="summaryWarnings"></div>
+      <div class="sum-tiles" id="summaryPoints"></div>
+    </section>
+
     <section class="card stack hidden" id="menusCard" data-view="menu">
       <div>
         <span class="eyebrow">תפריט</span>
@@ -572,15 +644,8 @@ td.n,th.n{text-align:end; white-space:nowrap}
       <div class="table-scroll">
         <table id="trackTable"></table>
       </div>
-    </section>
-
-    <section class="card stack hidden" id="summaryCard" data-view="home">
-      <div>
-        <span class="eyebrow">סיכום</span>
-        <h2 class="card-title">נקודות חשובות</h2>
-      </div>
-      <div class="stack-sm" id="summaryWarnings"></div>
-      <ul class="summary-points" id="summaryPoints"></ul>
+      <!-- 23.8.2026: אותם נתונים ככרטיסים — במובייל הטבלה יורדת (CSS) והכרטיסים עולים -->
+      <div class="trk-cards" id="trackCards"></div>
     </section>
 
   </div>
@@ -1006,6 +1071,19 @@ function buildFillSection(meal, menuIdx, mealIdx){
   return box;
 }
 
+/* שורת המאקרו של שורת מזון / של סיכום הארוחה — רק ערכים שקיימים באמת (23.8.2026) */
+function hasNumber(v){
+  if (v === null || v === undefined || v === "") return false;
+  return isFinite(Number(v));
+}
+function macroLine(protein, carbs, fat){
+  var parts = [];
+  if (hasNumber(protein)) parts.push("חלבון " + numText(protein, 1));
+  if (hasNumber(carbs)) parts.push("פחמימה " + numText(carbs, 1));
+  if (hasNumber(fat)) parts.push("שומן " + numText(fat, 1));
+  return parts.join(" · ");
+}
+
 function mealCard(meal, menuIdx, mealIdx){
   var card = el("article","card meal");
   var m = objOf(meal) || {};
@@ -1018,50 +1096,37 @@ function mealCard(meal, menuIdx, mealIdx){
   head.appendChild(tot);
   card.appendChild(head);
 
-  var scroll = el("div","table-scroll");
-  var table = document.createElement("table");
-  var thead = document.createElement("thead");
-  var htr = document.createElement("tr");
-  var heads = ["מזון","גרם","קק\"ל","חלבון","פחמימה","שומן"];
-  for (var h=0; h<heads.length; h++){
-    var th = el("th", h === 0 ? null : "n", heads[h]);
-    htr.appendChild(th);
-  }
-  thead.appendChild(htr);
-  table.appendChild(thead);
-
-  var tbody = document.createElement("tbody");
+  /* 23.8.2026 (בקשת סיפי): רשימה מוערמת במקום טבלה — הטבלה חייבה גלילה לצדדים
+     בטלפון. שורה לכל מזון: שם (+ רמז יחידות) · כמות · קק"ל, ומתחת שורת מאקרו קטנה */
+  var list = el("div","meal-rows");
   var rows = arrOf(m.rows);
   for (var i=0; i<rows.length; i++){
     var r = objOf(rows[i]) || {};
-    var tr = document.createElement("tr");
+    var line = el("div","meal-row");
     /* units — שדה חדש (משוב #5). מסמכי שיתוף ישנים בלי השדה מציגים בדיוק כמו קודם */
-    var nameTd = el("td","t-name", textOf(r.name) || "—");
+    var nameTd = el("div","mr-name", textOf(r.name) || "—");
     var units = textOf(r.units);
     if (units !== "") nameTd.appendChild(el("span","t-units", "≈ " + units));
-    tr.appendChild(nameTd);
-    tr.appendChild(el("td","n", numText(r.grams, 0)));
-    tr.appendChild(el("td","n", numText(r.kcal, 0)));
-    tr.appendChild(el("td","n", numText(r.protein, 1)));
-    tr.appendChild(el("td","n", numText(r.carbs, 1)));
-    tr.appendChild(el("td","n", numText(r.fat, 1)));
-    tbody.appendChild(tr);
+    line.appendChild(nameTd);
+    line.appendChild(el("div","mr-qty", r.free === true ? "חופשי" : (numText(r.grams, 0) + " ג'")));
+    var kcalCell = el("div","mr-kcal num", numText(r.kcal, 0));
+    kcalCell.appendChild(el("small", null, "קק\"ל"));
+    line.appendChild(kcalCell);
+    var macro = macroLine(r.protein, r.carbs, r.fat);
+    if (macro) line.appendChild(el("div","mr-macro", macro));
+    list.appendChild(line);
   }
-  table.appendChild(tbody);
 
-  var tfoot = document.createElement("tfoot");
-  var ftr = document.createElement("tr");
-  ftr.appendChild(el("td", null, "סה\"כ בארוחה"));
-  ftr.appendChild(el("td","n", ""));
-  ftr.appendChild(el("td","n", numText(sums.kcal, 0)));
-  ftr.appendChild(el("td","n", numText(sums.protein, 1)));
-  ftr.appendChild(el("td","n", numText(sums.carbs, 1)));
-  ftr.appendChild(el("td","n", numText(sums.fat, 1)));
-  tfoot.appendChild(ftr);
-  table.appendChild(tfoot);
-
-  scroll.appendChild(table);
-  card.appendChild(scroll);
+  var sumLine = el("div","meal-row meal-row-sum");
+  sumLine.appendChild(el("div","mr-name","סה\"כ בארוחה"));
+  sumLine.appendChild(el("div","mr-qty",""));
+  var sumKcal = el("div","mr-kcal num", numText(sums.kcal, 0));
+  sumKcal.appendChild(el("small", null, "קק\"ל"));
+  sumLine.appendChild(sumKcal);
+  var sumMacro = macroLine(sums.protein, sums.carbs, sums.fat);
+  if (sumMacro) sumLine.appendChild(el("div","mr-macro", sumMacro));
+  list.appendChild(sumLine);
+  card.appendChild(list);
 
   /* 21.8: אזור המילוי בכל ארוחה (כשהקטלוג טעון) — לא רק בארוחות עם תקציב */
   if (CATALOG_READY) card.appendChild(buildFillSection(m, menuIdx, mealIdx));
@@ -1198,7 +1263,9 @@ function shareColumns(tr){
 function renderTracking(tracking){
   var card = $("trackCard");
   var table = $("trackTable");
+  var cardsBox = $("trackCards");   /* 23.8.2026: אותם נתונים ככרטיסים למובייל */
   clear(table);
+  clear(cardsBox);
   var tr = objOf(tracking);
   if (!tr){ show(card, false); return; }
 
@@ -1247,7 +1314,199 @@ function renderTracking(tracking){
     tbody.appendChild(trow);
   }
   table.appendChild(tbody);
+
+  /* כרטיס לכל תאריך, החדש למעלה — הטבלה מוסתרת ב-CSS מתחת ל-720px */
+  if (cardsBox){
+    for (var z=withData.length-1; z>=0; z--){
+      var isoC = withData[z];
+      var valsC = objOf(rows[isoC]) || {};
+      var box = el("div","trk-card");
+      box.appendChild(el("div","trk-card-date", isoDateText(isoC)));
+      var chips = el("div","row-flex");
+      for (var y=0; y<cols.length; y++){
+        var cv = textOf(valsC[cols[y].id]);
+        if (cv === "") continue;
+        chips.appendChild(el("span","chip chip-neutral",
+          (textOf(cols[y].label) || textOf(cols[y].id)) + ": " + cv));
+      }
+      box.appendChild(chips);
+      cardsBox.appendChild(box);
+    }
+  }
   show(card, true);
+}
+
+/* ---------- ההתקדמות שלי (23.8.2026, בקשת סיפי) ----------
+   אריח לכל עמודה מספרית בטבלת המעקב: הערך האחרון, השינוי מאז המדידה הראשונה,
+   וגרף קו זעיר (SVG מקומי, בלי שום ספרייה). הנתונים הם בדיוק אותם נתונים של
+   הטבלה — אין כאן חישוב, רק מינימום/מקסימום לסקאלה. עמודות טקסט (הערות) נושרות
+   מעצמן, כי אין בהן אף ערך שמתפרש כמספר */
+var SVG_NS = "http://www.w3.org/2000/svg";
+var PROG_SEQ = 0;   /* מזהה ייחודי לגרדיאנט של כל גרף — defs חייב id שאינו חוזר */
+
+function svgEl(tag, cls){
+  var e = document.createElementNS(SVG_NS, tag);
+  if (cls) e.setAttribute("class", cls);
+  return e;
+}
+/* "60.5" / "60,5" / " 60 " → מספר; כל השאר → null (ולכן מדולג) */
+function progNumber(v){
+  var s = textOf(v).trim().replace(",", ".");
+  if (s === "") return null;
+  var x = Number(s);
+  return isFinite(x) ? x : null;
+}
+function progUnit(label){
+  var s = textOf(label);
+  if (s.indexOf("משקל") > -1) return "ק״ג";
+  if (s.indexOf("היקף") > -1) return "ס״מ";
+  return "";
+}
+function progRound(x){ return Math.round(x * 100) / 100; }
+
+/* הגרף עצמו. הזמן זורם מימין לשמאל — כמו הקריאה בעמוד, וכמו פסי ההתקדמות שלו.
+   preserveAspectRatio="none" מותח את הציור לרוחב האריח; לכן הקו מצויר עם
+   vector-effect (עובי קבוע במסך) והנקודות קטנות דיין כדי לא להיראות מעוותות */
+function progChart(pts, wide){
+  var vbH = wide ? 30 : 36;
+  var pad = 4;
+  var svg = svgEl("svg","prog-chart");
+  svg.setAttribute("viewBox", "0 0 100 " + vbH);
+  svg.setAttribute("preserveAspectRatio","none");
+  svg.setAttribute("aria-hidden","true");
+
+  var lo = pts[0].v, hi = pts[0].v;
+  for (var i=1; i<pts.length; i++){
+    if (pts[i].v < lo) lo = pts[i].v;
+    if (pts[i].v > hi) hi = pts[i].v;
+  }
+  var span = hi - lo;
+  if (span <= 0){ lo -= 1; hi += 1; }        /* כל הערכים זהים → קו ישר באמצע */
+  else { lo -= span * 0.1; hi += span * 0.1; }
+
+  var xs = [], ys = [];
+  for (var j=0; j<pts.length; j++){
+    var t = (pts.length === 1) ? 0.5 : (j / (pts.length - 1));
+    xs.push(progRound(100 - (pad + t * (100 - pad * 2))));
+    ys.push(progRound(vbH - pad - ((pts[j].v - lo) / (hi - lo)) * (vbH - pad * 2)));
+  }
+
+  var gid = "progGrad" + (++PROG_SEQ);
+  var defs = svgEl("defs");
+  var grad = svgEl("linearGradient");
+  grad.setAttribute("id", gid);
+  grad.setAttribute("x1","0"); grad.setAttribute("y1","0");
+  grad.setAttribute("x2","0"); grad.setAttribute("y2","1");
+  var stop1 = svgEl("stop");
+  stop1.setAttribute("offset","0");
+  stop1.setAttribute("style","stop-color:var(--accent); stop-opacity:.35");
+  var stop2 = svgEl("stop");
+  stop2.setAttribute("offset","1");
+  stop2.setAttribute("style","stop-color:#C9A86D; stop-opacity:0");
+  grad.appendChild(stop1);
+  grad.appendChild(stop2);
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  if (pts.length > 1){
+    var d = ["M " + xs[0] + " " + vbH];
+    for (var a=0; a<xs.length; a++) d.push("L " + xs[a] + " " + ys[a]);
+    d.push("L " + xs[xs.length-1] + " " + vbH);
+    d.push("Z");
+    var area = svgEl("path");
+    area.setAttribute("d", d.join(" "));
+    area.setAttribute("fill", "url(#" + gid + ")");
+    svg.appendChild(area);
+
+    var line = svgEl("polyline","prog-line");
+    var seq = [];
+    for (var b=0; b<xs.length; b++) seq.push(xs[b] + "," + ys[b]);
+    line.setAttribute("points", seq.join(" "));
+    line.setAttribute("vector-effect","non-scaling-stroke");
+    svg.appendChild(line);
+  }
+  for (var c=0; c<xs.length; c++){
+    var last = (c === xs.length - 1);
+    var dot = svgEl("circle", last ? "prog-dot prog-dot-last" : "prog-dot");
+    dot.setAttribute("cx", String(xs[c]));
+    dot.setAttribute("cy", String(ys[c]));
+    dot.setAttribute("r", last ? "3.2" : "2.2");
+    svg.appendChild(dot);
+  }
+  return svg;
+}
+
+function progTile(col, pts, wide){
+  var tile = el("div", wide ? "prog-tile prog-tile-wide" : "prog-tile");
+  var label = textOf(col.label) || textOf(col.id);
+  tile.appendChild(el("span","prog-label", label));
+
+  var last = pts[pts.length-1].v;
+  var valueEl = el("span","prog-value num", numText(last, 1));
+  var unit = progUnit(label);
+  if (unit) valueEl.appendChild(el("span","prog-unit", unit));
+  tile.appendChild(valueEl);
+
+  var delta = el("span","prog-delta");
+  if (pts.length < 2){
+    delta.textContent = "מדידה ראשונה";
+  } else {
+    var diff = Math.round((last - pts[0].v) * 10) / 10;
+    if (diff === 0){
+      delta.textContent = "ללא שינוי";
+    } else if (diff < 0){
+      delta.className = "prog-delta down";
+      delta.textContent = "↓ " + numText(-diff, 1);
+    } else {
+      delta.className = "prog-delta up";
+      delta.textContent = "↑ " + numText(diff, 1);
+    }
+  }
+  tile.appendChild(delta);
+  tile.appendChild(progChart(pts, wide));
+
+  var axis = el("div","prog-axis");
+  axis.appendChild(el("span", null, isoDateText(pts[0].iso)));
+  if (pts.length > 1) axis.appendChild(el("span", null, isoDateText(pts[pts.length-1].iso)));
+  tile.appendChild(axis);
+  return tile;
+}
+
+function renderProgress(tracking){
+  var card = $("progressCard");
+  var grid = $("progGrid");
+  if (!card || !grid) return;
+  clear(grid);
+  var tr = objOf(tracking);
+  if (!tr){ show(card, false); return; }
+
+  var cols = shareColumns(tr);
+  var rows = objOf(tr.rows) || {};
+  var dates = [];
+  var rawDates = arrOf(tr.dates);
+  if (rawDates.length){
+    for (var d=0; d<rawDates.length; d++) dates.push(textOf(rawDates[d]));
+  } else {
+    dates = Object.keys(rows).sort();
+  }
+
+  var shown = 0;
+  for (var c=0; c<cols.length; c++){
+    var id = textOf(cols[c].id);
+    var pts = [];
+    for (var i=0; i<dates.length; i++){
+      var row = objOf(rows[dates[i]]);
+      if (!row) continue;
+      var v = progNumber(row[id]);
+      if (v === null) continue;
+      pts.push({iso:dates[i], v:v});
+    }
+    if (!pts.length) continue;   /* עמודת טקסט (הערות) — אין מה לצייר */
+    /* המדד הראשון (בדרך כלל משקל) מקבל אריח רחב על שתי העמודות */
+    grid.appendChild(progTile(cols[c], pts, shown === 0));
+    shown++;
+  }
+  show(card, shown > 0);
 }
 
 /* ---------- מדידות (23.8.2026, תוספת B) ----------
@@ -1455,6 +1714,27 @@ function loadPending(cols){
   } catch (e){ show(wrap, false); }
 }
 
+/* סינון הנקודות לתצוגת הלקוחה (23.8.2026, בקשת סיפי): "הרגלים" ו"חשקים למתוק"
+   יורדות לגמרי, ומתוך "תהליך" יורדים תתי-הפריטים "מחויבות" ו"משך" — מידע פנימי
+   של סיוון שאין לו מה לעשות במסך של הלקוחה. "" = הנקודה לא מוצגת */
+function summaryPointText(raw){
+  var txt = textOf(raw).trim();
+  if (txt === "") return "";
+  var cut = txt.indexOf(": ");
+  var label = cut > -1 ? txt.slice(0, cut) : "";
+  if (label === "הרגלים" || label === "חשקים למתוק") return "";
+  if (label !== "תהליך") return txt;
+  var parts = txt.slice(cut + 2).split(" · ");
+  var keep = [];
+  for (var i=0; i<parts.length; i++){
+    var item = parts[i].trim();
+    if (item === "") continue;
+    if (item.indexOf("מחויבות:") === 0 || item.indexOf("משך:") === 0) continue;
+    keep.push(item);
+  }
+  return keep.length ? (label + ": " + keep.join(" · ")) : "";
+}
+
 function renderSummary(summary){
   var card = $("summaryCard");
   var warnBox = $("summaryWarnings");
@@ -1473,7 +1753,7 @@ function renderSummary(summary){
   var points = [];
   var rawP = arrOf(s.points);
   for (var j=0; j<rawP.length; j++){
-    var p = textOf(rawP[j]).trim();
+    var p = summaryPointText(rawP[j]);
     if (p) points.push(p);
   }
   if (!warnings.length && !points.length){ show(card, false); return; }
@@ -1482,8 +1762,17 @@ function renderSummary(summary){
     var cls = warnings[a].indexOf("דגל אדום") > -1 ? "alert alert-bad" : "alert";
     warnBox.appendChild(el("div", cls, warnings[a]));
   }
+  /* אריח לכל נקודה: הכותרת שלפני ה-": " נפרדת מהתוכן (23.8.2026) */
   for (var b=0; b<points.length; b++){
-    pointsBox.appendChild(el("li", null, points[b]));
+    var tile = el("div","sum-tile");
+    var at = points[b].indexOf(": ");
+    if (at > -1){
+      tile.appendChild(el("span","sum-tile-label", points[b].slice(0, at)));
+      tile.appendChild(el("span","sum-tile-text", points[b].slice(at + 2)));
+    } else {
+      tile.appendChild(el("span","sum-tile-text", points[b]));
+    }
+    pointsBox.appendChild(tile);
   }
   show(card, true);
 }
@@ -1729,6 +2018,7 @@ function renderShare(data){
   renderTargets(d.targets);
   renderMenus(d.menus, d.targets);
   renderTracking(d.tracking);
+  renderProgress(d.tracking);
   renderMeasureCard(d.tracking);
   renderSummary(d.summary);
   updateStaleNote();
@@ -1962,28 +2252,43 @@ function showSignIn(state, extra){
    מחוברת לחשבון שמקושר לתוכנית אחרת / לא מקושר (הצעה לחבר לכאן) */
 function refreshAcctCard(){
   var card = $("acctCard");
+  var line = $("acctLine");   /* 23.8.2026: השורה השקטה בכרטיס הפתיחה, למצב המחובר */
   if (!card) return;
-  if (!PORTAL_AUTH || !PORTAL_TOKEN || !SHARE){ show(card, false); return; }
+  if (!PORTAL_AUTH || !PORTAL_TOKEN || !SHARE){ show(card, false); show(line, false); return; }
   /* 23.8.2026: עד ההודעה הראשונה מ-Auth לא יודעים אם היא מחוברת — עדיף כרטיס חבוי מהצעת
      "חיבור עם Google" שמהבהבת ומתחלפת ל-"החשבון מחובר ✓". AUTH_WAIT_OVER (טיימר ב-boot)
      דואג שאתחול Auth תקוע לא יסתיר את הכרטיס לנצח */
-  if (AUTH_FIRST && !AUTH_WAIT_OVER){ show(card, false); return; }
+  if (AUTH_FIRST && !AUTH_WAIT_OVER){ show(card, false); show(line, false); return; }
   var user = AUTH_USER;
-  if (user !== null && LINKED_TOKEN === null){ show(card, false); return; }   /* עוד בודקים את הקישור */
+  if (user !== null && LINKED_TOKEN === null){ show(card, false); show(line, false); return; }   /* עוד בודקים את הקישור */
   var linkedHere = user !== null && LINKED_TOKEN === PORTAL_TOKEN;
+  /* 23.8.2026 (בקשת סיפי): כשהחשבון כבר מחובר לתוכנית הזו אין מה לעשות — הכרטיס
+     השלם ירד מהבית, ובמקומו שורה שקטה בכרטיס הפתיחה ("מחוברת כ-…" + יציאה).
+     תוכן הכרטיס עדיין מתעדכן, כדי שכל מצב שיחשוף אותו שוב יהיה נכון */
+  if (linkedHere){
+    $("acctTitle").textContent = "החשבון מחובר ✓";
+    $("acctLinkedText").textContent = "מחוברת כ-" + emailOf(user) + " — מעכשיו אפשר להיכנס לתוכנית גם בלי הקישור, מכל מכשיר.";
+    show($("acctConnect"), false);
+    show($("acctLinked"), true);
+    show($("btnAcctSignOut"), true);
+    if (line){
+      $("acctLineText").textContent = "מחוברת כ-" + emailOf(user);
+      show(line, true);
+    }
+    show(card, false);
+    return;
+  }
+  show(line, false);
   /* PWA (שלב ב', 23.8.2026): בתוך אפליקציית מסך-הבית באייפון אי אפשר לחבר חשבון —
      חלון ה-Google הקופץ וקישור-המייל נשברים שם (האחסון מבודד מספארי, ומייל נפתח בדפדפן אחר).
      במקום כפתורים שלא יעבדו מסבירים לחבר פעם אחת מספארי; המצבים המחוברים לא משתנים */
   var lockedIOS = user === null && isStandalone() && isIOS();
-  show($("acctConnect"), !linkedHere);
-  show($("acctLinked"), linkedHere);
+  show($("acctConnect"), true);
+  show($("acctLinked"), false);
   show($("btnAcctSignOut"), user !== null);
   show($("acctEmailRow"), user === null && !lockedIOS);
   show($("btnConnectGoogle"), !lockedIOS);
-  if (linkedHere){
-    $("acctTitle").textContent = "החשבון מחובר ✓";
-    $("acctLinkedText").textContent = "מחוברת כ-" + emailOf(user) + " — מעכשיו אפשר להיכנס לתוכנית גם בלי הקישור, מכל מכשיר.";
-  } else if (user !== null){
+  if (user !== null){
     $("acctTitle").textContent = "לחבר את החשבון לתוכנית הזו?";
     $("acctLede").textContent = (LINKED_TOKEN && LINKED_TOKEN !== PORTAL_TOKEN)
       ? "החשבון " + emailOf(user) + " מחובר לתוכנית אחרת — לחבר אותו לתוכנית הזו במקום?"
@@ -2146,8 +2451,12 @@ function signOutPortal(){
   AUTH_USER = null; LINKED_TOKEN = "";
   forgetDevice();
   setNote("acctNote", "", "");
-  if (ENTRY_MODE === "hash" && PORTAL_TOKEN && SHARE){ refreshAcctCard(); return; }   /* עם קישור ביד — נשארים בתוכנית */
-  PORTAL_TOKEN = ""; SHARE = null; TOKEN_SOURCE = "";
+  /* 23.8.2026 (בקשת סיפי): יציאה תמיד מחזירה למסך הכניסה — גם כשהעמוד נפתח מקישור
+     אישי. עד כאן נשארנו בתוכנית ("עם קישור ביד"), וזה נראה כאילו היציאה לא עבדה.
+     מנקים גם את ה-#t= מהכתובת, אחרת רענון היה פותח את התוכנית שוב בשקט;
+     פתיחה חוזרת של הקישור האישי עדיין מכניסה כרגיל */
+  PORTAL_TOKEN = ""; SHARE = null; TOKEN_SOURCE = ""; ENTRY_MODE = "auto";
+  try { history.replaceState(null, "", location.pathname); } catch (e){}
   showSignIn();
 }
 
@@ -2156,6 +2465,7 @@ function wireAuthButtons(){
   b = $("btnConnectGoogle"); if (b) b.addEventListener("click", connectGoogle);
   b = $("btnConnectEmail"); if (b) b.addEventListener("click", function(){ sendEmailLink($("acctEmailIn").value, PORTAL_TOKEN, "acctNote"); });
   b = $("btnAcctSignOut"); if (b) b.addEventListener("click", signOutPortal);
+  b = $("btnAcctLineSignOut"); if (b) b.addEventListener("click", signOutPortal);
   b = $("btnErrorSignOut"); if (b) b.addEventListener("click", signOutPortal);
   b = $("btnSigninSignOut"); if (b) b.addEventListener("click", signOutPortal);
   b = $("btnSigninGoogle"); if (b) b.addEventListener("click", function(){
