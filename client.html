@@ -300,6 +300,10 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .fill-cat-head{display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:13.5px; font-weight:800}
 .fill-cat-budget{font-size:12.5px; color:var(--text-soft); font-weight:700; white-space:nowrap}
 .fill-row-grams{font-size:13.5px; font-weight:800; white-space:nowrap}
+/* שורת היתרה במד "נאכל היום" (24.8.2026) */
+.eaten-left{font-size:13px; font-weight:700; color:var(--text-muted); border-top:1px dashed var(--border-strong); padding-top:8px}
+.eaten-left.over{color:var(--bad)}
+.eaten-left:empty{display:none}
 /* שורת בחירה בקטגוריה — הכול בשורה אחת: שם גולש עם שלוש נקודות, לא נשבר לשורות */
 .fill-cat .fill-row{flex-wrap:nowrap}
 .fill-cat .fill-row-name{flex:1 1 60px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -480,6 +484,8 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .hs-row + .hs-row{border-top:1px solid var(--border)}
 .hs-row b{font-weight:800}
 .hs-row > span:first-child{font-weight:700; color:var(--text-muted)}
+#homeStatsCard{cursor:pointer}
+.hs-cta{margin-top:10px; font-size:12.5px; font-weight:700; color:var(--accent-deep)}
 /* ==== SAND-SERIF-END ==== */
 </style>
 </head>
@@ -610,7 +616,8 @@ td.n,th.n{text-align:end; white-space:nowrap}
     </section>
 
     <!-- מד יומי בעמוד הבית (24.8.2026, הרפרנס של סיפי): קלוריות שנותרו + חלבון/פחמימה/שומן מול היעד -->
-    <section class="card hidden" id="homeStatsCard" data-view="home">
+    <!-- 24.8.2026 (בקשת סיוון): הכרטיס כולו לחיץ — מוביל למסך התפריט, שם גם היתרה המפורטת -->
+    <section class="card hidden" id="homeStatsCard" data-view="home" role="button" tabindex="0" aria-label="מעבר למילוי התפריט">
       <div class="home-stats">
         <div class="hs-kcal">
           <span class="eyebrow">נשאר להיום</span>
@@ -619,6 +626,7 @@ td.n,th.n{text-align:end; white-space:nowrap}
         </div>
         <div class="hs-macros" id="hsMacros"></div>
       </div>
+      <p class="hs-cta">למילוי התפריט ←</p>
     </section>
 
     <!-- מגמת המדד הראשון (משקל) בעמוד הבית — כמו "Weight trend" ברפרנס; אותו כרטיס כמו בטאב היעדים -->
@@ -895,6 +903,15 @@ function refreshPortalNav(){
      סומנה, כדי שהלקוחה תתחיל למלא בלי לחפש איפה ללחוץ */
   var go = $("btnGoFill");
   if (go) go.addEventListener("click", function(){ showView("menu"); openFirstMeal(); });
+  /* 24.8.2026 (בקשת סיוון): לחיצה על מד "נשאר להיום" מובילה למסך התפריט — שם היתרה המפורטת */
+  var hsCard = $("homeStatsCard");
+  function goMenuFromStats(){ showView("menu"); openFirstMeal(); }
+  if (hsCard){
+    hsCard.addEventListener("click", goMenuFromStats);
+    hsCard.addEventListener("keydown", function(ev){
+      if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); goMenuFromStats(); }
+    });
+  }
 })();
 
 /* ---------- מצבי עמוד ---------- */
@@ -1606,6 +1623,11 @@ function menuSummary(menu, targets){
   macros.id = "eatenMacros";
   box.appendChild(macros);
 
+  /* היתרה להיום (24.8.2026, בקשת סיוון): כמה קלוריות נשארו — וגם גרמים לכל אב-מזון עם יעד */
+  var left = el("p","eaten-left","");
+  left.id = "eatenLeft";
+  box.appendChild(left);
+
   refreshEatenSummary();
   return box;
 }
@@ -1676,6 +1698,31 @@ function refreshEatenSummary(){
   if (macros){
     macros.textContent = "חלבון " + numText(e.protein, 1) + " ג' · פחמימה " + numText(e.carbs, 1) +
                          " ג' · שומן " + numText(e.fat, 1) + " ג'";
+  }
+  /* היתרה (24.8.2026): קלוריות שנשארו + גרמים שנשארו לכל מאקרו שיש לו יעד; חריגה — באדום */
+  var leftEl = $("eatenLeft");
+  if (leftEl){
+    var t = objOf(PORTAL_TARGETS) || {};
+    if (!EATEN_GOAL){
+      leftEl.textContent = "";
+      show(leftEl, false);
+    } else {
+      var remain = Math.round(EATEN_GOAL - e.kcal);
+      var over = remain < 0;
+      var parts = [];
+      parts.push(over ? ("מעל היעד ב-" + n(-remain) + " קק\"ל") : ("נשאר: " + n(remain) + " קק\"ל"));
+      var mm = [["protein","חלבון",e.protein],["carbs","פחמימה",e.carbs],["fat","שומן",e.fat]];
+      for (var mi=0; mi<mm.length; mi++){
+        var tg = Number(t[mm[mi][0]]);
+        if (!isFinite(tg) || tg <= 0) continue;
+        var mr = tg - Number(mm[mi][2] || 0);
+        if (mr < 0) mr = 0;
+        parts.push(mm[mi][1] + " " + numText(mr, 0) + " ג'");
+      }
+      leftEl.textContent = parts.join(" · ");
+      leftEl.classList.toggle("over", over);
+      show(leftEl, true);
+    }
   }
   /* 24.8.2026: כל שינוי במילוי מגיע לכאן (refreshSaveBar קורא לנו) — ולכן גם המד
      בעמוד הבית מתעדכן מכאן, ולא צריך חיווט נפרד לכל כפתור */
@@ -2215,6 +2262,7 @@ function renderHomeTrend(tracking){
   var wrap = $("homeTrendWrap");
   if (!wrap) return;
   clear(wrap);
+  var shown = 0;
   var tr = objOf(tracking);
   if (!tr){ show(wrap, false); return; }
 
@@ -2238,12 +2286,12 @@ function renderHomeTrend(tracking){
       if (v === null) continue;
       pts.push({iso:dates[i], v:v});
     }
-    if (pts.length < 2) continue;   /* עמודת טקסט, או מדידה בודדת — אין מגמה לצייר */
+    if (!pts.length) continue;   /* עמודת טקסט — אין מה לצייר */
+    /* 24.8.2026 (בקשת סיוון): כל מדדי המעקב בבית — לא רק המשקל */
     wrap.appendChild(progCard(cols[c], pts));
-    show(wrap, true);
-    return;
+    shown++;
   }
-  show(wrap, false);
+  show(wrap, shown > 0);
 }
 
 /* ---------- מדידות (23.8.2026, תוספת B) ----------
