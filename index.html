@@ -300,6 +300,12 @@ th.sortable[aria-sort="descending"] .sort-ind::after{content:"▼"; width:auto}
 .mrow-kcal{display:flex; flex-direction:column; gap:1px; text-align:start}
 .mrow-kcal-top{display:flex; align-items:baseline; gap:4px}
 .mrow-kcal b{font-size:16px; font-weight:800}
+/* 25.8.2026: תא הקק"ל הוא שדה קלט (הזנה בגרמים או בקלוריות) — 74px כמו שדה הגרמים,
+   כך שהוא + תווית היחידה נכנסים בעמודת ה-104px של רשת השורה ב-860px.
+   הבורר הוא input.mrow-kcal-in ולא .mrow-kcal-in בלבד — אחרת כלל הבסיס
+   input[type="number"] גובר עליו ברמת הסגוליות ומחזיר width:100%, בדיוק כמו
+   שהכלל .mrow-qty input עושה לשדה הגרמים. טבעת המיקוד מגיעה מהכלל הכללי */
+input.mrow-kcal-in{width:74px; font:inherit; padding:4px 6px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-weight:800; text-align:end}
 .mrow-kcal span{font-size:11.5px; color:var(--text-soft)}
 .mrow-units{font-size:11.5px; color:var(--text-soft); white-space:nowrap}
 .mrow-units:empty{display:none}
@@ -892,7 +898,7 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <button class="btn btn-quiet btn-sm" id="btnMenuCopy" type="button">העתק כטקסט</button>
         <button class="btn btn-quiet btn-sm" id="btnMenuReset" type="button">איפוס</button>
       </div>
-      <p class="note-line">הכמויות בגרמים. בחירת מזון בשורה ריקה ממלאת אוטומטית את משקל המנה הביתית — ואפשר לשנות אותו חופשי. "תקציב ללקוח" בכותרת ארוחה = כמה קק"ל הלקוח/ה בוחר/ת לבד בקישור האישי; גם בלי תקציב הלקוח/ה יכול/ה לרשום בקישור מה אכל/ה בפועל. "תקציב לפי אבות מזון" (פחמימה/חלבון/שומן בקק"ל) מחליף בארוחה הזו את המילוי החופשי: הלקוח/ה בוחר/ת מזון לכל קטגוריה ומקבל/ת כמות גרמים מחושבת בדיוק לפי הקלוריות. כל שינוי כאן נשמר אוטומטית כטיוטה.</p>
+      <p class="note-line">הכמויות בגרמים. בחירת מזון בשורה ריקה ממלאת אוטומטית את משקל המנה הביתית — ואפשר לשנות אותו חופשי. "תקציב ללקוח" בכותרת ארוחה = כמה קק"ל הלקוח/ה בוחר/ת לבד בקישור האישי; גם בלי תקציב הלקוח/ה יכול/ה לרשום בקישור מה אכל/ה בפועל. "תקציב לפי אבות מזון" (פחמימה/חלבון/שומן בקק"ל) מחליף בארוחה הזו את המילוי החופשי: הלקוח/ה בוחר/ת מזון לכל קטגוריה ומקבל/ת כמות גרמים מחושבת בדיוק לפי הקלוריות. אפשר להזין כמות בגרמים או ישירות בקק"ל — השדה השני מתעדכן לבד. כל שינוי כאן נשמר אוטומטית כטיוטה.</p>
     </div>
 
     <div class="card stack hidden" id="daySummary">
@@ -6557,9 +6563,17 @@ function buildFoodRow(foods, meal, row){
 
   var kcalBox = el("div","mrow-kcal");
   var kcalTop = el("div","mrow-kcal-top");
-  var kcalNum = el("b","num","0");
-  kcalNum.setAttribute("data-row-kcal","1");
-  kcalTop.appendChild(kcalNum);
+  /* 25.8.2026 (בקשת סיוון, פריט 2+3): תא הקק"ל הפך לשדה קלט — אפשר להזין כמות
+     בגרמים או ישירות בקלוריות, והשדה השני מתעדכן לבד. מודל הנתונים לא משתנה:
+     השורה ממשיכה לשמור גרמים בלבד (row.grams), והקק"ל רק מתורגמת אליהם */
+  var kcalIn = document.createElement("input");
+  kcalIn.type = "number";
+  kcalIn.className = "mrow-kcal-in num";
+  kcalIn.min = "0";
+  kcalIn.step = "10";
+  kcalIn.setAttribute("data-row-kcal","1");
+  kcalIn.setAttribute("aria-label","כמות בקלוריות");
+  kcalTop.appendChild(kcalIn);
   kcalTop.appendChild(el("span", null, "קק\"ל"));
   kcalBox.appendChild(kcalTop);
   /* רמז היחידות ("≈ 2 × שיפוד") — נשאר ריק כשהמנה נמדדת בגרמים בלבד */
@@ -6576,6 +6590,16 @@ function buildFoodRow(foods, meal, row){
   gramsIn.addEventListener("input", function(){
     var v = Number(gramsIn.value);
     row.grams = (isFinite(v) && v > 0) ? v : 0;
+    recalc();
+  });
+  /* 25.8.2026: הכיוון ההפוך — הזנה בקק"ל מתורגמת לגרמים לפי kcal100 של המזון.
+     בלי מזון נבחר, או כשהמזון הוא 0 קק"ל ל-100 ג' (ירק חופשי), אין מה להמיר */
+  kcalIn.addEventListener("input", function(){
+    var f = (row.foodId && Object.prototype.hasOwnProperty.call(foods.byId, row.foodId)) ? foods.byId[row.foodId] : null;
+    if (!f || Number(f.kcal100) <= 0) return;
+    var kc = Number(kcalIn.value);
+    row.grams = (isFinite(kc) && kc > 0) ? Math.round(kc * 100 / Number(f.kcal100)) : 0;
+    gramsIn.value = (row.grams > 0) ? String(row.grams) : "";
     recalc();
   });
   del.addEventListener("click", function(){
@@ -6839,7 +6863,9 @@ function recalc(){
     for (j=0;j<rowNums.length && j<meal.rows.length;j++){
       var row = meal.rows[j];
       var m = foodMacros(foods.byId, row.foodId, Number(row.grams));
-      rowNums[j].textContent = n(m.kcal);
+      /* 25.8.2026: תא הקק"ל הוא שדה קלט — כותבים value בספרות רגילות (לא n(), שמפריד אלפים
+         ושובר <input type="number">), ולעולם לא דורסים את השדה שסיוון מקלידה בו כרגע */
+      if (rowNums[j] !== document.activeElement) rowNums[j].value = (m.kcal > 0) ? String(m.kcal) : "";
       var f = (row.foodId && Object.prototype.hasOwnProperty.call(foods.byId, row.foodId)) ? foods.byId[row.foodId] : null;
       if (rowCats[j]) rowCats[j].textContent = f ? CAT_LABEL[f.cat] : "—";
       if (rowUnits[j]){

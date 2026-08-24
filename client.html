@@ -309,6 +309,19 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .fill-cat .fill-row-name{flex:1 1 60px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .fill-cat .fill-row-del{width:32px; height:32px; font-size:15px; flex:0 0 auto}
 
+/* ---------- מאגר המזונות (25.8.2026, בקשת סיוון) ---------- */
+.foods-qty{display:flex; align-items:center; gap:8px}
+.foods-qty label{font-size:13px; font-weight:700; color:var(--text-soft)}
+/* 16px — בלי זום אוטומטי בספארי באייפון (כמו כל שדות הפורטל) */
+.foods-qty input{width:110px; font:inherit; font-size:16px; padding:9px 11px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); color:var(--text)}
+.foods-qty span{font-size:13px; color:var(--text-soft); white-space:nowrap}
+#foodsSearchIn{width:100%; font:inherit; font-size:16px; padding:9px 11px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); color:var(--text)}
+.food-row{padding:9px 0; border-bottom:1px solid var(--border)}
+.food-row:last-child{border-bottom:0}
+.food-row b{font-size:14px}
+.food-row .food-vals{display:block; font-size:12.5px; color:var(--text-muted); margin-top:2px}
+.food-free{color:var(--ok); font-weight:700; font-size:12px; margin-inline-start:6px}
+
 /* ---------- חשבון אישי / מסך כניסה (22.8.2026) ---------- */
 .acct-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
 .acct-row .btn{white-space:nowrap}
@@ -763,6 +776,28 @@ td.n,th.n{text-align:end; white-space:nowrap}
       </div>
     </section>
 
+    <!-- מאגר המזונות (25.8.2026, בקשת סיוון #1): הלקוחה מחפשת מזון מהקטלוג, בוחרת אם
+         להזין כמות בגרמים או בקלוריות — והערכים מחושבים לפי הכמות שהיא נתנה.
+         תצוגה בלבד: הקטלוג נשאר לקריאה בלבד, אין כאן שום כתיבה -->
+    <section class="card stack hidden" id="foodsCard" data-view="foods">
+      <div>
+        <span class="eyebrow">מאגר</span>
+        <h2 class="card-title">מאגר המזונות</h2>
+      </div>
+      <p class="lede">חפשי מזון, בחרי גרמים או קלוריות — והערכים מתעדכנים לפי הכמות</p>
+      <div class="chip-pick" id="foodsModePick">
+        <button class="pick-chip" type="button" data-mode="grams" aria-pressed="true">בגרמים</button>
+        <button class="pick-chip" type="button" data-mode="kcal" aria-pressed="false">בקלוריות</button>
+      </div>
+      <div class="foods-qty">
+        <label for="foodsQtyIn">הכמות:</label>
+        <input type="number" id="foodsQtyIn" min="0" step="10" value="100">
+        <span id="foodsQtyUnit">ג'</span>
+      </div>
+      <input type="text" id="foodsSearchIn" placeholder="הקלידו שם מזון..." aria-label="חיפוש מזון במאגר">
+      <div class="stack-sm" id="foodsList"></div>
+    </section>
+
     <!-- מדידות (23.8.2026, תוספת B): הלקוחה מדווחת משקל/היקפים — סיוון מאשרת ומכניסה לטבלה -->
     <section class="card stack hidden" id="measureCard" data-view="track">
       <div>
@@ -804,6 +839,9 @@ td.n,th.n{text-align:end; white-space:nowrap}
   <button type="button" data-view="home" aria-selected="true">הבית</button>
   <button type="button" data-view="targets" aria-selected="false">יעדים</button>
   <button type="button" data-view="menu" aria-selected="false">תפריט</button>
+  <!-- 25.8.2026: הטאב החמישי — מאגר המזונות. refreshPortalNav מסתיר אותו לבד
+       כשאין קטלוג, בדיוק כמו כל טאב בלי תוכן -->
+  <button type="button" data-view="foods" aria-selected="false">מזונות</button>
   <button type="button" data-view="track" aria-selected="false">מעקב</button>
 </nav>
 
@@ -1175,6 +1213,115 @@ function searchCatalogAll(q){
 function searchCatalog(q){
   return searchCatalogAll(q).slice(0, 12);
 }
+
+/* ---------- מאגר המזונות: טאב "מזונות" (25.8.2026, בקשת סיוון) ----------
+   הלקוחה מחפשת מזון באותו קטלוג של המילוי העצמי, בוחרת אם לחשוב בגרמים או
+   בקלוריות — וכל שינוי בכמות מחשב מחדש את כל הרשימה. תצוגה בלבד: אין כאן שום
+   כתיבה, CATALOG נשאר לקריאה בלבד, ואף ערך לא נשמר לענן או ל-localStorage. */
+var FOODS_MODE = "grams";   /* "grams" = מה יש ב-Q גרם · "kcal" = כמה גרם נותנות Q קלוריות */
+var FOODS_CAP = 30;         /* תקרת תוצאות — רשימה ארוכה מדי לא עוזרת במסך טלפון */
+
+/* הכמות שהלקוחה ביקשה. ריק / 0 / שלילי → 100, כדי שהרשימה תמיד תראה משהו הגיוני */
+function foodsQty(){
+  var box = $("foodsQtyIn");
+  var q = box ? Number(box.value) : NaN;
+  return (isFinite(q) && q > 0) ? q : 100;
+}
+
+/* שורת הערכים של מזון אחד לפי המצב והכמות. null = אין מה לחשב במצב הזה */
+function foodsValsLine(f, qty){
+  var k = qty / 100;
+  if (FOODS_MODE === "kcal"){
+    var kc100 = Number(f.kcal100);
+    if (!(kc100 > 0)) return null;   /* אי אפשר לגזור גרמים ממזון של 0 קק"ל ל-100 ג' */
+    var grams = Math.round(qty * 100 / kc100);
+    k = grams / 100;
+    return "בשביל " + n(qty) + " קק\"ל: " + n(grams) + " ג' · חלבון " + numText(Number(f.protein100) * k, 1) +
+           " · פחמימה " + numText(Number(f.carbs100) * k, 1) + " · שומן " + numText(Number(f.fat100) * k, 1);
+  }
+  return "ב-" + n(qty) + " ג': " + n(Math.round(Number(f.kcal100) * k)) + " קק\"ל · חלבון " + numText(Number(f.protein100) * k, 1) +
+         " · פחמימה " + numText(Number(f.carbs100) * k, 1) + " · שומן " + numText(Number(f.fat100) * k, 1);
+}
+
+function renderFoodsList(){
+  var box = $("foodsList");
+  if (!box) return;
+  clear(box);
+  var srch = $("foodsSearchIn");
+  var q = srch ? srch.value : "";
+  if (searchNormP(q) === ""){
+    box.appendChild(el("p","fill-note","התחילי להקליד כדי לחפש במאגר"));
+    return;
+  }
+  var qty = foodsQty();
+  var all = searchCatalogAll(q);
+  var shown = 0, capped = false;
+  for (var i=0;i<all.length;i++){
+    var f = all[i];
+    if (shown >= FOODS_CAP){ capped = true; break; }
+    var row = el("div","food-row");
+    row.appendChild(el("b", null, f.name));
+    /* מזון חופשי מוצג בשני המצבים בלי שום מספר — זו בדיוק המשמעות שלו ללקוחה */
+    if (f.free === true){
+      row.appendChild(el("span","food-free","חופשי — לא נספר"));
+      box.appendChild(row);
+      shown++;
+      continue;
+    }
+    var line = foodsValsLine(f, qty);
+    if (line === null) continue;   /* במצב קלוריות מדלגים על מזון בלי קלוריות */
+    row.appendChild(el("span","food-vals", line));
+    box.appendChild(row);
+    shown++;
+  }
+  if (capped) box.appendChild(el("p","fill-note","מציגות 30 ראשונות — דייקי את החיפוש"));
+  if (shown === 0) box.appendChild(el("p","fill-note","לא נמצא מזון מתאים"));
+}
+
+/* סימון הצ'יפ הפעיל + תווית היחידה ליד שדה הכמות */
+function syncFoodsMode(){
+  var btns = document.querySelectorAll("#foodsModePick .pick-chip");
+  for (var i=0;i<btns.length;i++){
+    btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-mode") === FOODS_MODE ? "true" : "false");
+  }
+  var unit = $("foodsQtyUnit");
+  if (unit) unit.textContent = (FOODS_MODE === "kcal") ? "קק\"ל" : "ג'";
+}
+
+/* איפוס מלא: מצב גרמים, כמות 100, חיפוש ריק ורשימה נקייה (רק שורת הרמז).
+   נקרא גם מ-renderShare וגם מ-loadShare — שום דבר לא דולף בין טוקנים */
+function resetFoodsCard(){
+  FOODS_MODE = "grams";
+  var qty = $("foodsQtyIn");
+  if (qty) qty.value = "100";
+  var srch = $("foodsSearchIn");
+  if (srch) srch.value = "";
+  syncFoodsMode();
+  renderFoodsList();
+}
+
+(function initFoodsCard(){
+  var srch = $("foodsSearchIn");
+  if (srch) srch.addEventListener("input", renderFoodsList);
+  var qty = $("foodsQtyIn");
+  if (qty) qty.addEventListener("input", renderFoodsList);
+  var pick = $("foodsModePick");
+  if (!pick) return;
+  var btns = pick.querySelectorAll(".pick-chip");
+  for (var i=0;i<btns.length;i++){
+    (function(b){
+      b.addEventListener("click", function(){
+        var m = b.getAttribute("data-mode");
+        if (m === FOODS_MODE) return;
+        FOODS_MODE = m;
+        /* החלפת מצב מאפסת את הכמות ל-100 — "100 גרם" ו-"100 קלוריות" הן שתי שאלות שונות */
+        if (qty) qty.value = "100";
+        syncFoodsMode();
+        renderFoodsList();
+      });
+    })(btns[i]);
+  }
+})();
 
 function renderGreeting(data){
   var name = textOf(data.clientName).trim();
@@ -3221,6 +3368,10 @@ function renderShare(data){
   /* קטלוג שנכשל בטעינה כשיש ארוחות — אומרים ללקוחה במקום להעלים את אזור המילוי */
   show($("catalogFailNote"), shareHasMeals(d) && !CATALOG_READY);
   show($("homeCtaCard"), PORTAL_MENUS.length > 0 && CATALOG_READY);
+  /* מאגר המזונות (25.8.2026): נשען על אותו קטלוג של המילוי — בלי קטלוג אין מה להציג,
+     והטאב יורד לבד ב-refreshPortalNav. האיפוס מבטיח שכל תוכנית מתחילה נקי */
+  show($("foodsCard"), CATALOG_READY);
+  resetFoodsCard();
   renderHomeStats();   /* 24.8.2026: אחרי renderMenus — היעדים והתפריטים כבר במקום */
   loadWeekSummary();   /* 24.8.2026: הסיכום השבועי — מצייר מיד ומשלים ימים שעברו מהענן */
   renderWeekMeasures(d.tracking);   /* ורצועת המדדים בתוך אותו כרטיס */
@@ -3328,6 +3479,10 @@ function loadShare(token, source){
   MEAS_SAVING = false;
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
   resetIntakeCard();    /* 24.8.2026: וגם כרטיס שאלון ההיכרות */
+  /* 25.8.2026: כרטיס המזונות — יורד מהמסך ומתאפס, כדי שחיפוש/כמות של התוכנית הקודמת
+     לא יישארו כשנפתח טוקן אחר; renderShare יחזיר אותו אם יש קטלוג */
+  show($("foodsCard"), false);
+  resetFoodsCard();
   show($("installCard"), false);   /* כרטיס ההתקנה תלוי ב-SHARE — חוזר ב-renderShare */
   /* 24.8.2026: גם המד והסיכום השבועי של הבית — מספרים של התוכנית הקודמת לא נשארים על המסך */
   show($("homeStatsCard"), false);
