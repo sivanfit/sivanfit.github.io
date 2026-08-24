@@ -486,6 +486,33 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .hs-row > span:first-child{font-weight:700; color:var(--text-muted)}
 #homeStatsCard{cursor:pointer}
 .hs-cta{margin-top:10px; font-size:12.5px; font-weight:700; color:var(--accent-deep)}
+/* 24.8.2026 (בקשת סיוון): הסיכום השבועי בבית — עמודה לכל יום מול קו היעד.
+   הגובה קבוע ומחולק בין תווית הערך, תיבת העמודה ואות היום; קו היעד ממוקם לפי
+   אותה חלוקה בדיוק (ראו renderWeekChart), ולכן ל-.wk-val ול-.wk-day גובה קשיח.
+   .wk-col ממוקם (position:relative) כדי שהעמודות ייצבעו *מעל* קו היעד — הוא הילד
+   הראשון ולכן נצבע ראשון; בלי זה הקו הממוקם היה עובר על גבי העמודות */
+.week-chart{position:relative; display:flex; gap:6px; height:120px; align-items:stretch; padding-top:14px}
+.wk-col{appearance:none; -webkit-appearance:none; border:0; background:transparent; font:inherit; color:inherit; cursor:pointer; flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px; padding:0; min-width:0; position:relative}
+.wk-col:disabled{cursor:default; opacity:.45}
+.wk-val{font-size:10.5px; color:var(--text-soft); font-weight:600; height:14px; line-height:14px}
+.wk-bar-box{width:100%; max-width:26px; flex:1 1 auto; display:flex; align-items:flex-end; justify-content:center}
+.wk-bar{width:100%; border-radius:4px 4px 0 0; background:linear-gradient(180deg, var(--accent), var(--accent-deep)); min-height:3px}
+.wk-bar.over{background:var(--bad); opacity:.85}
+.wk-empty{width:8px; height:4px; border-radius:2px; background:var(--border-strong)}
+.wk-day{font-size:11.5px; font-weight:700; color:var(--text-soft); height:16px; line-height:16px}
+.wk-day.today{color:var(--accent-deep); font-weight:800}
+.wk-goal{position:absolute; inset-inline:0; border-top:1.5px dashed var(--border-strong); pointer-events:none}
+.wk-goal span{position:absolute; inset-inline-start:0; top:-13px; font-size:10px; color:var(--text-soft); background:var(--surface); padding:0 3px}
+/* 24.8.2026 (עדכון סיוון): גם מדדי טבלת המעקב — צ'יפים קטנים בתוך אותו כרטיס */
+.wk-measures{display:flex; flex-wrap:wrap; gap:8px; border-top:1px dashed var(--border-strong); padding-top:10px}
+.wk-meas{display:inline-flex; align-items:baseline; gap:5px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:5px 12px; font-size:12.5px}
+.wk-meas b{font-weight:700}
+.wk-meas .num{font-weight:800; font-size:13.5px}
+.wk-meas-unit{font-size:11px; color:var(--text-soft)}
+.wk-delta{font-weight:700; font-size:12px; color:var(--text-soft)}
+.wk-delta.down{color:var(--ok)}
+.wk-delta.up{color:var(--warn)}
+.wk-delta .num{font-weight:inherit; font-size:inherit}   /* המספר שבתג ההפרש בגודל התג, לא בגודל הערך */
 /* ==== SAND-SERIF-END ==== */
 </style>
 </head>
@@ -629,8 +656,17 @@ td.n,th.n{text-align:end; white-space:nowrap}
       <p class="hs-cta">למילוי התפריט ←</p>
     </section>
 
-    <!-- מגמת המדד הראשון (משקל) בעמוד הבית — כמו "Weight trend" ברפרנס; אותו כרטיס כמו בטאב היעדים -->
-    <div class="hidden" id="homeTrendWrap" data-view="home"></div>
+    <!-- סיכום שבועי (24.8.2026, בקשת סיוון): במקום כרטיסי המדדים — תמונת השבוע של האכילה.
+         עמודה לכל יום ראשון-שבת מול קו היעד; לחיצה על יום פותחת אותו למילוי בטאב התפריט -->
+    <section class="card stack hidden" id="weekCard" data-view="home">
+      <div>
+        <span class="eyebrow">השבוע שלך</span>
+        <h2 class="card-title">סיכום שבועי</h2>
+      </div>
+      <div class="week-chart" id="weekChart"></div>
+      <p class="lede" id="weekLine"></p>
+      <div class="wk-measures hidden" id="weekMeasures"></div>
+    </section>
 
     <!-- התקנה כאפליקציה (PWA, שלב ב' 23.8.2026): באנדרואיד/כרום יש כפתור אמיתי
          (beforeinstallprompt), באייפון ההתקנה ידנית מתפריט השיתוף — ולכן ההוראות -->
@@ -855,8 +891,8 @@ function clear(node){
 /* ---------- טאבי הפורטל (21.8) ----------
    ארבעה מסכים כמו באפליקציה: הבית (לקוחה+סיכום) · יעדים · תפריט+מילוי · מעקב.
    ההסתרה ב-.view-hidden — נפרדת מ-.hidden ששומר על שערי זמינות-הנתונים.
-   24.8.2026: הבורר כולל גם div[data-view] (המעטפת #homeTrendWrap) — ובכוונה *לא*
-   [data-view] סתם, כי לכפתורי בר-הטאבים עצמם יש data-view ואסור להסתיר אותם */
+   24.8.2026: הבורר הוא section[data-view] וגם div[data-view] (מעטפות עתידיות) — ובכוונה
+   *לא* [data-view] סתם, כי לכפתורי בר-הטאבים עצמם יש data-view ואסור להסתיר אותם */
 var PORTAL_VIEW = "home";
 
 function showView(v){
@@ -979,6 +1015,9 @@ var SAVED_AT = "";           /* updatedAt של המסמך השמור בענן */
 /* 24.8.2026 (הערת סיפי #1): איזה יום בשבוע מוצג — "" = היום (התצוגה החיה), אחרת ISO של יום שעבר */
 var DAY_SEL = "";
 var DAY_CACHE = {};          /* iso → מסמך-היום המנורמל, או null כשלא מולא. כישלון רשת לא נכנס למטמון */
+/* 24.8.2026 (הסיכום השבועי): iso → קלוריות של יום שעבר (null = לא מולא). נטען פעם אחת
+   ב-loadWeekSummary; הגרף מצייר ממנו בלי שום קריאה נוספת לענן. מאופס ב-loadShare */
+var WEEK_KCal = {};
 /* 24.8.2026 (הערת סיפי #3): היעד של מד "נאכל היום" — יעד הקלוריות, ובהיעדרו סכום התפריט; null = בלי בר */
 var EATEN_GOAL = null;
 
@@ -1727,6 +1766,8 @@ function refreshEatenSummary(){
   /* 24.8.2026: כל שינוי במילוי מגיע לכאן (refreshSaveBar קורא לנו) — ולכן גם המד
      בעמוד הבית מתעדכן מכאן, ולא צריך חיווט נפרד לכל כפתור */
   renderHomeStats();
+  /* 24.8.2026: וגם העמודה של היום בסיכום השבועי — מהמצב שבזיכרון, בלי שום קריאה לענן */
+  renderWeekChart();
 }
 
 /* שורת מאקרו אחת במד הבית: "חלבון  19 / 130 ג'". יעד חסר/אפס → אין שורה בכלל
@@ -1973,27 +2014,36 @@ function enterDayEdit(iso){
 }
 
 /* מסמך-היום: מהמטמון אם כבר נקרא, אחרת קריאה אחת מהענן. כישלון (חוקים שעוד לא
-   פורסמו / אין רשת) לא נכנס למטמון — כדי שלחיצה נוספת תנסה שוב, וגם לא נפתח
-   למילוי: בלי לדעת מה כבר שמור באותו יום, שמירה הייתה דורסת אותו בשקט */
+   פורסמו / אין רשת) לא נכנס למטמון — כדי שקריאה נוספת תנסה שוב.
+   24.8.2026: חולץ לפונקציה משותפת — גם מילוי יום אחורה וגם הסיכום השבועי קוראים
+   דרכה, ולכן יום שכבר נקרא לא נקרא פעמיים. cb(day, ok): day = המסמך המנורמל או
+   null כשהיום לא מולא · ok=false = הקריאה נכשלה (ואז אין נתון בכלל).
+   ה-callback לא נקרא כשהתחלפה תוכנית תוך כדי — התשובה כבר לא שייכת למסך */
+function fetchDayDoc(iso, cb){
+  if (Object.prototype.hasOwnProperty.call(DAY_CACHE, iso)){ cb(DAY_CACHE[iso], true); return; }
+  if (!PORTAL_DB || !PORTAL_TOKEN){ cb(null, false); return; }
+  var tok = PORTAL_TOKEN;
+  PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("days").doc(iso).get().then(function(snap){
+    if (PORTAL_TOKEN !== tok) return;
+    var day = (snap && snap.exists) ? normalizeDayDoc(snap.data()) : null;
+    DAY_CACHE[iso] = day;
+    cb(day, true);
+  }, function(){
+    if (PORTAL_TOKEN !== tok) return;
+    cb(null, false);
+  });
+}
+
+/* טעינת יום שעבר למילוי. כישלון = הודעה בלבד, בלי אקורדיון: בלי לדעת מה כבר שמור
+   באותו יום, שמירה הייתה דורסת אותו בשקט */
 function loadDayForEdit(iso){
   var box = $("dayViewBox");
   if (!box) return;
-  if (Object.prototype.hasOwnProperty.call(DAY_CACHE, iso)){
-    CHOICES_BY_DAY[iso] = choicesFromSavedMeals(DAY_CACHE[iso] ? DAY_CACHE[iso].meals : [], PORTAL_MENUS);
-    enterDayEdit(iso);
-    return;
-  }
-  if (!PORTAL_DB || !PORTAL_TOKEN){ dayLoadFailed(box); return; }
-  var tok = PORTAL_TOKEN;
-  PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("days").doc(iso).get().then(function(snap){
-    if (PORTAL_TOKEN !== tok || DAY_SEL !== iso) return;   /* התחלפה תוכנית או נבחר יום אחר */
-    var day = (snap && snap.exists) ? normalizeDayDoc(snap.data()) : null;
-    DAY_CACHE[iso] = day;
+  fetchDayDoc(iso, function(day, ok){
+    if (DAY_SEL !== iso) return;   /* בינתיים נבחר יום אחר */
+    if (!ok){ dayLoadFailed(box); return; }
     CHOICES_BY_DAY[iso] = choicesFromSavedMeals(day ? day.meals : [], PORTAL_MENUS);
     enterDayEdit(iso);
-  }, function(){
-    if (PORTAL_TOKEN !== tok || DAY_SEL !== iso) return;
-    dayLoadFailed(box);
   });
 }
 
@@ -2255,16 +2305,164 @@ function renderProgress(tracking){
   show(card, shown > 0);
 }
 
-/* מגמת המדד הראשון בעמוד הבית (24.8.2026, הרפרנס של סיפי — "Weight trend"):
-   אותו progCard בדיוק כמו בטאב היעדים, רק העמודה הראשונה שיש בה שתי מדידות ומעלה.
-   מדידה בודדת לא מציירת קו ולכן הכרטיס יורד כאן (בטאב היעדים הוא עדיין מוצג) */
-function renderHomeTrend(tracking){
-  var wrap = $("homeTrendWrap");
-  if (!wrap) return;
-  clear(wrap);
-  var shown = 0;
+/* ============================================================
+   סיכום שבועי בעמוד הבית (24.8.2026, בקשת סיוון: "תוריד את כל הפרמטרים של
+   השקילה, ותן לי סיכום שבועי איכותי יפה") — במקום כרטיסי המדדים שהיו כאן.
+   עמודה לכל יום ראשון-שבת מול קו יעד הקלוריות: יום שעבר נקרא פעם אחת ממסמך
+   היום (fetchDayDoc → WEEK_KCal), היום עצמו תמיד חי מהמילוי שבזיכרון, ויום
+   שעוד לא הגיע כבוי. כרטיסי המדד עצמם ממשיכים לחיות בטאב היעדים.
+   ============================================================ */
+var WK_LETTERS = ["א","ב","ג","ד","ה","ו","ש"];
+
+/* הקלוריות של מסמך-יום מנורמל — סכום ה-kcal של כל השורות (ערך שלילי נספר כאפס) */
+function dayDocKcal(day){
+  var d = objOf(day);
+  if (!d) return 0;
+  var sum = 0, meals = arrOf(d.meals);
+  for (var i=0; i<meals.length; i++){
+    var m = objOf(meals[i]);
+    if (!m) continue;
+    var rows = arrOf(m.rows);
+    for (var j=0; j<rows.length; j++){
+      var r = objOf(rows[j]);
+      if (!r) continue;
+      var k = Number(r.kcal);
+      if (!isFinite(k) || k < 0) k = 0;
+      sum += k;
+    }
+  }
+  return Math.round(sum);
+}
+
+/* מה העמודה מציגה: היום — חי מהמילוי של היום (כל התפריטים); יום שעבר — מה שנטען
+   (null = לא מולא, או שהקריאה נכשלה); יום שעוד לא הגיע — null */
+function weekValueOf(iso, today){
+  if (iso === today) return eatenTotalsAll(CHOICES_BY_DAY[""] || {}).kcal;
+  if (iso > today) return null;
+  return Object.prototype.hasOwnProperty.call(WEEK_KCal, iso) ? WEEK_KCal[iso] : null;
+}
+
+/* שורת הסיכום מתחת לגרף: כמה ימים מולאו עד היום · ממוצע ליום מולא · יעד הקלוריות */
+function renderWeekLine(days, today, goal){
+  var line = $("weekLine");
+  if (!line) return;
+  var upto = 0, filled = 0, sum = 0;
+  for (var i=0; i<days.length; i++){
+    if (days[i].iso > today) continue;   /* סופרים רק ימים שכבר היו */
+    upto++;
+    var v = weekValueOf(days[i].iso, today);
+    if (v !== null && v > 0){ filled++; sum += v; }
+  }
+  var txt = "מולאו " + n(filled) + " מתוך " + n(upto) + " ימים עד היום";
+  if (filled > 0) txt += " · ממוצע " + n(Math.round(sum / filled)) + " קק\"ל ליום";
+  if (goal) txt += " · יעד: " + n(goal) + " קק\"ל";
+  line.textContent = txt;
+}
+
+/* ציור הגרף — זול ואידמפוטנטי: בונה את שבע העמודות מהמצב שבזיכרון בלבד, בלי
+   שום קריאה לענן, ולכן אפשר לקרוא לו מכל שינוי במילוי (refreshEatenSummary) */
+function renderWeekChart(){
+  var box = $("weekChart");
+  if (!box) return;
+  clear(box);
+  var lineEl = $("weekLine");
+  if (lineEl) lineEl.textContent = "";
+  if (!SHARE || !PORTAL_MENUS.length) return;
+
+  var days = weekDays();
+  var today = localDayISO();
+  var t = objOf(PORTAL_TARGETS) || {};
+  var goal = Number(t.kcal);
+  if (!isFinite(goal) || goal <= 0) goal = 0;   /* בלי יעד — בלי קו יעד ובלי "יעד:" בשורה */
+
+  var vals = [], maxV = goal;
+  for (var i=0; i<days.length; i++){
+    var v = weekValueOf(days[i].iso, today);
+    vals.push(v);
+    if (v !== null && v > maxV) maxV = v;
+  }
+  if (maxV < 1) maxV = 1;
+  var span = maxV * 1.08;   /* קצת אוויר מעל העמודה הגבוהה */
+
+  /* קו היעד נכנס ראשון — עמודה ממוקמת (position:relative) נצבעת מעליו.
+     המיקום נמדד מתחתית הגרף: 16px אות היום + 4px רווח, ומעליהם תיבת העמודה
+     שגובהה 100% פחות 52px (14 ריפוד עליון + 14 תווית ערך + שני רווחי 4 + 16 אות) */
+  if (goal){
+    var gline = el("div","wk-goal");
+    gline.style.bottom = "calc(20px + (100% - 52px) * " + (goal / span) + ")";
+    gline.appendChild(el("span", null, "יעד"));
+    box.appendChild(gline);
+  }
+
+  for (var c=0; c<days.length; c++){
+    (function(d, v, letter){
+      var col = el("button","wk-col");
+      col.type = "button";
+      col.setAttribute("data-iso", d.iso);
+      var has = v !== null && v > 0;
+      col.appendChild(el("span","wk-val num", has ? n(v) : ""));   /* תמיד קיים — שומר על גובה קבוע */
+      var barBox = el("span","wk-bar-box");
+      if (has){
+        var bar = el("span","wk-bar");
+        if (goal && v > goal) bar.classList.add("over");   /* מעל היעד — עמודה אדמדמה */
+        var h = Math.round((v / span) * 1000) / 10;
+        if (h > 100) h = 100;
+        bar.style.height = h + "%";
+        barBox.appendChild(bar);
+      } else if (d.iso <= today){
+        barBox.appendChild(el("span","wk-empty"));   /* יום שהיה ולא מולא — קו קטן בתחתית */
+      }
+      col.appendChild(barBox);
+      col.appendChild(el("span", d.iso === today ? "wk-day today" : "wk-day", letter));
+      if (d.iso > today){
+        col.disabled = true;
+        col.setAttribute("aria-label", "יום " + d.label + " " + d.date + " — עוד לא היה");
+      } else {
+        col.setAttribute("aria-label", "יום " + d.label + " " + d.date +
+                         (has ? (" — " + n(v) + " קק\"ל") : " — עדיין לא מולא"));
+        /* קודם מחליפים מסך ואז בוחרים את היום — selectDay מצייר לתוך טאב התפריט */
+        col.addEventListener("click", function(){ showView("menu"); selectDay(d.iso); });
+      }
+      box.appendChild(col);
+    })(days[c], vals[c], WK_LETTERS[c]);
+  }
+
+  renderWeekLine(days, today, goal);
+}
+
+/* טעינת השבוע: מצייר מיד ממה שכבר יש (העמודה של היום, וימים שנקראו קודם), ומשלים
+   קריאה אחת לכל יום שעבר שעוד לא ידוע. כל תשובה מציירת מחדש — סדר ההגעה לא משנה */
+function loadWeekSummary(){
+  var card = $("weekCard");
+  if (!card) return;
+  if (!SHARE || !PORTAL_MENUS.length){ show(card, false); clear($("weekChart")); return; }
+  show(card, true);
+  renderWeekChart();
+  var days = weekDays();
+  var today = localDayISO();
+  var tok = PORTAL_TOKEN;
+  for (var i=0; i<days.length; i++){
+    (function(iso){
+      if (iso >= today) return;   /* היום חי מהזיכרון, ויום עתידי אין מה לקרוא */
+      if (Object.prototype.hasOwnProperty.call(WEEK_KCal, iso)) return;
+      fetchDayDoc(iso, function(day, ok){
+        if (PORTAL_TOKEN !== tok || !ok) return;   /* כישלון רשת — בלי נתון, וננסה שוב בטעינה הבאה */
+        WEEK_KCal[iso] = day ? dayDocKcal(day) : null;
+        renderWeekChart();
+      });
+    })(days[i].iso);
+  }
+}
+
+/* רצועת המדדים בתוך אותו כרטיס (24.8.2026, עדכון של סיוון: "גם הפרמטרים של טבלת
+   המעקב — השקילה והכל"): צ'יפ לכל עמודה מספרית — הערך האחרון + השינוי מול המדידה
+   האחרונה שלפני תחילת השבוע. אין מדידה לפני תחילת השבוע → הערך בלבד, בלי תג שינוי */
+function renderWeekMeasures(tracking){
+  var box = $("weekMeasures");
+  if (!box) return;
+  clear(box);
   var tr = objOf(tracking);
-  if (!tr){ show(wrap, false); return; }
+  if (!tr){ show(box, false); return; }
 
   var cols = shareColumns(tr);
   var rows = objOf(tr.rows) || {};
@@ -2275,23 +2473,45 @@ function renderHomeTrend(tracking){
   } else {
     dates = Object.keys(rows).sort();
   }
+  var weekStart = weekDays()[0].iso;
 
+  var shown = 0;
   for (var c=0; c<cols.length; c++){
     var id = textOf(cols[c].id);
-    var pts = [];
+    var label = textOf(cols[c].label) || id;
+    var last = null, before = null, lastDate = "";
     for (var i=0; i<dates.length; i++){
       var row = objOf(rows[dates[i]]);
       if (!row) continue;
       var v = progNumber(row[id]);
-      if (v === null) continue;
-      pts.push({iso:dates[i], v:v});
+      if (v === null) continue;   /* עמודת טקסט (הערות/היצמדות) — אין מה למדוד */
+      last = v;
+      lastDate = dates[i];
+      if (dates[i] < weekStart) before = v;
     }
-    if (!pts.length) continue;   /* עמודת טקסט — אין מה לצייר */
-    /* 24.8.2026 (בקשת סיוון): כל מדדי המעקב בבית — לא רק המשקל */
-    wrap.appendChild(progCard(cols[c], pts));
+    if (last === null) continue;
+
+    var chip = el("span","wk-meas");
+    chip.appendChild(el("b", null, label));
+    chip.appendChild(el("span","num", numText(last, 1)));
+    var unit = progUnit(label);
+    if (unit) chip.appendChild(el("span","wk-meas-unit", unit));
+    /* תג ההפרש רק כשיש מדידה מהשבוע הזה — "ללא שינוי" בלי שקילה השבוע היה מטעה (24.8.2026) */
+    if (before !== null && lastDate >= weekStart){
+      var diff = Math.round((last - before) * 10) / 10;
+      if (diff === 0){
+        chip.appendChild(el("span","wk-delta","ללא שינוי"));
+      } else {
+        var dEl = el("span", diff < 0 ? "wk-delta down" : "wk-delta up");
+        dEl.appendChild(document.createTextNode(diff < 0 ? "↓ " : "↑ "));
+        dEl.appendChild(el("span","num", numText(diff < 0 ? -diff : diff, 1)));
+        chip.appendChild(dEl);
+      }
+    }
+    box.appendChild(chip);
     shown++;
   }
-  show(wrap, shown > 0);
+  show(box, shown > 0);
 }
 
 /* ---------- מדידות (23.8.2026, תוספת B) ----------
@@ -2835,6 +3055,9 @@ function saveChoices(){
       SAVING = false;
       if (PORTAL_TOKEN !== tok){ refreshSaveBar(); return; }
       DAY_CACHE[savedDay] = normalizeDayDoc(payload);   /* המטמון מחזיק עכשיו את מה שנכתב */
+      /* 24.8.2026: וגם העמודה של אותו יום בסיכום השבועי — מיד, בלי קריאה חוזרת לענן */
+      WEEK_KCal[savedDay] = dayDocKcal(DAY_CACHE[savedDay]);
+      renderWeekChart();
       refreshSaveBar();
       if (DAY_SEL !== savedDay) return;   /* בינתיים עברה ליום אחר — ההודעה כבר לא שלו */
       note.textContent = "נשמר ליום " + (savedInfo.label || savedInfo.date) +
@@ -2991,7 +3214,6 @@ function renderShare(data){
   renderMenus(d.menus, d.targets);
   renderTracking(d.tracking);
   renderProgress(d.tracking);
-  renderHomeTrend(d.tracking);   /* 24.8.2026: אותו כרטיס מגמה, גם בעמוד הבית */
   renderMeasureCard(d.tracking);
   renderIntakeCard(d.intake);
   renderSummary(d.summary);
@@ -3000,6 +3222,8 @@ function renderShare(data){
   show($("catalogFailNote"), shareHasMeals(d) && !CATALOG_READY);
   show($("homeCtaCard"), PORTAL_MENUS.length > 0 && CATALOG_READY);
   renderHomeStats();   /* 24.8.2026: אחרי renderMenus — היעדים והתפריטים כבר במקום */
+  loadWeekSummary();   /* 24.8.2026: הסיכום השבועי — מצייר מיד ומשלים ימים שעברו מהענן */
+  renderWeekMeasures(d.tracking);   /* ורצועת המדדים בתוך אותו כרטיס */
   refreshAcctCard();
   refreshInstallCard();
   refreshPortalNav();
@@ -3105,8 +3329,10 @@ function loadShare(token, source){
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
   resetIntakeCard();    /* 24.8.2026: וגם כרטיס שאלון ההיכרות */
   show($("installCard"), false);   /* כרטיס ההתקנה תלוי ב-SHARE — חוזר ב-renderShare */
-  /* 24.8.2026: גם המד והמגמה של הבית — מספרים של התוכנית הקודמת לא נשארים על המסך */
-  show($("homeStatsCard"), false); clear($("homeTrendWrap")); show($("homeTrendWrap"), false);
+  /* 24.8.2026: גם המד והסיכום השבועי של הבית — מספרים של התוכנית הקודמת לא נשארים על המסך */
+  show($("homeStatsCard"), false);
+  show($("weekCard"), false); clear($("weekChart")); $("weekLine").textContent = "";
+  clear($("weekMeasures")); show($("weekMeasures"), false); WEEK_KCal = {};
   PORTAL_TOKEN = token;
   TOKEN_SOURCE = source || "hash";
   var seq = ++LOAD_SEQ;
