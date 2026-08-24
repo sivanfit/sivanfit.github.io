@@ -139,6 +139,9 @@ button{font:inherit; color:inherit}
 .wrap{max-width:1100px; width:100%; margin:0 auto; padding:18px 16px 28px; display:flex; flex-direction:column; gap:18px; flex:1 1 auto}
 .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px}
 .card-title{font-size:17px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+/* כותרת סקשן מחוץ לכרטיס (24.8.2026): "המדדים שלך" יושבת מעל רשימת הכרטיסים
+   הלבנים ולא בתוך כרטיס משלה — ולכן צמודה לכרטיס הראשון */
+.sec-title{font-family:var(--serif); font-size:19px; font-weight:700; margin:4px 2px -4px}
 .eyebrow{font-size:11px; letter-spacing:.12em; color:var(--text-soft); font-weight:700}
 .lede{color:var(--text-muted); font-size:13.5px}
 .stack{display:flex; flex-direction:column; gap:14px}
@@ -204,10 +207,25 @@ td.n,th.n{text-align:end; white-space:nowrap}
 
 /* ---------- meal cards ---------- */
 .meal{padding:0; overflow:hidden}
-.meal-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:12px 14px; background:var(--surface-2); border-bottom:1px solid var(--border); flex-wrap:wrap}
-.meal-head h3{font-size:14.5px}
-.meal-total{font-size:13px; color:var(--text-muted); font-weight:700; display:flex; gap:8px; align-items:baseline}
-.meal-total b{font-size:17px; color:var(--text)}
+/* אקורדיון ארוחה (24.8.2026, הערות סיפי): הכותרת היא כפתור — עיגול-וי, שם הארוחה
+   ושלושת המזונות הראשונים, הקק"ל של הארוחה וחץ. הפירוט נפתח מתחת, סגור כברירת מחדל,
+   כדי שמסך התפריט ייקרא כרשימה קצרה כמו במסך ה-Nutrition של העיצוב */
+.meal-toggle{appearance:none; width:100%; border:0; background:transparent; font:inherit; color:inherit; text-align:start; cursor:pointer; display:flex; align-items:center; gap:12px; padding:14px 16px}
+.meal-mark{width:28px; height:28px; border-radius:50%; flex:0 0 auto; border:1.5px solid var(--border-strong); background:transparent; position:relative}
+.meal-mark.done{background:var(--accent); border-color:var(--accent)}
+/* הוי מצויר ב-CSS (בורדר מסובב) — כך אין צומת טקסט שקורא-מסך יקריא בתוך הכפתור.
+   הצדדים כאן פיזיים בכוונה (left/top ולא inline-start): הוי הוא צורה, לא טקסט,
+   ובעמוד RTL הגרסה הלוגית התהפכה לחץ שמאלה */
+.meal-mark.done::after{content:""; position:absolute; left:50%; top:50%; width:6px; height:11px; border:2px solid #fff; border-top:0; border-left:0; transform:translate(-50%,-60%) rotate(45deg)}
+.meal-head-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px}
+.meal-name{font-weight:700; font-size:15.5px}
+.meal-sub{display:block; font-size:12.5px; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.meal-kcal{white-space:nowrap; font-weight:700}
+.meal-kcal b{font-size:15px}
+.meal-kcal small{font-size:11px; color:var(--text-soft); margin-inline-start:3px; font-weight:600}
+.meal-chev{width:10px; height:10px; flex:0 0 auto; border-right:2px solid var(--text-soft); border-bottom:2px solid var(--text-soft); transform:rotate(45deg); transition:transform .18s}
+.meal[data-open="true"] .meal-chev{transform:rotate(-135deg)}
+.meal-body{border-top:1px solid var(--border)}
 /* שורות הארוחה (23.8.2026): רשימה מוערמת במקום טבלה — במובייל אין יותר גלילה לצדדים */
 .meal-rows{display:flex; flex-direction:column}
 .meal-row{display:grid; grid-template-columns:1fr auto auto; gap:4px 10px; align-items:baseline; padding:9px 14px; border-bottom:1px solid var(--border)}
@@ -218,11 +236,15 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .mr-kcal{font-weight:800; font-size:14px; white-space:nowrap}
 .mr-kcal small{font-weight:600; font-size:11px; color:var(--text-soft); margin-inline-start:3px}
 .mr-macro{grid-column:1 / -1; font-size:12px; color:var(--text-soft)}
-.sum-head{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; justify-content:space-between}
+/* סיכום התפריט (24.8.2026): כרטיס-בר לבן בראש מסך התפריט, כמו שורת "Today" בעיצוב —
+   "סה"כ התפריט" בצד ההתחלה והמספרים בצד הסיום, ומתחת פס ההתקדמות מול היעד */
+.sum-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.sum-head-label{font-weight:700; font-size:15.5px}
 .sum-total{display:flex; align-items:baseline; gap:8px}
-.sum-total b{font-size:32px; font-weight:800; letter-spacing:-.01em}
+.sum-total b{font-size:20px; font-weight:800; letter-spacing:-.01em}
 .sum-total span{font-size:13px; color:var(--text-muted)}
-.menu-sum{background:var(--surface-2)}
+.menu-sum{background:var(--surface)}
+.menu-sum .bar{height:8px}
 
 /* ---------- מילוי עצמי (ארוחה עם תקציב) ---------- */
 .fill{border-top:2px solid var(--border-strong); background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:10px}
@@ -288,31 +310,32 @@ td.n,th.n{text-align:end; white-space:nowrap}
 /* ---------- alerts + summary ---------- */
 .alert{border:1px solid var(--warn); background:var(--warn-bg); color:var(--warn); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; font-weight:600}
 .alert-bad{border-color:var(--bad); background:var(--bad-bg); color:var(--bad)}
-/* אריחי הסיכום (23.8.2026): הנקודות החשובות כאריחים בטאב "יעדים", לא כרשימת נקודות */
-.sum-tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
-.sum-tiles:empty{display:none}
-.sum-tile{background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; display:flex; flex-direction:column; gap:4px; min-width:0}
-.sum-tile-label{font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--text-soft)}
-.sum-tile-text{font-size:13.5px; line-height:1.45}
+/* נקודות הסיכום (24.8.2026, הערות סיפי): שורות רשימה עם סימן זהב — האריחים היו
+   כבדים מדי ליד כרטיסי המדדים; כאן הכותרת והתוכן זה מתחת לזה, בשורה אחת רציפה */
+.sum-list{display:flex; flex-direction:column}
+.sum-list:empty{display:none}
+.sum-row{display:flex; align-items:flex-start; gap:12px; padding:11px 0; border-bottom:1px solid var(--border)}
+.sum-row:last-child{border-bottom:0; padding-bottom:2px}
+.sum-row:first-child{padding-top:2px}
+.sum-mark{width:26px; height:26px; border-radius:50%; background:var(--accent-soft); flex:0 0 auto; display:flex; align-items:center; justify-content:center; margin-top:1px}
+.sum-mark::after{content:""; width:8px; height:8px; border-radius:50%; background:var(--accent-deep)}
+.sum-body{display:flex; flex-direction:column; gap:1px; min-width:0}
+.sum-label{font-weight:700; font-size:14.5px}
+.sum-text{font-size:14px; color:var(--text-muted); line-height:1.5; overflow-wrap:anywhere}
 
-/* ---------- ההתקדמות שלי (23.8.2026): אריח לכל מדד + גרף קו זעיר ---------- */
-.prog-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
-.prog-tile{background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:6px; min-width:0}
-.prog-tile-wide{grid-column:1 / -1}
-.prog-label{font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--text-soft)}
-.prog-value{font-family:var(--serif); font-size:28px; font-weight:700; line-height:1.1}
-.prog-tile-wide .prog-value{font-size:36px}
-.prog-unit{font-size:13px; color:var(--text-muted); margin-inline-start:4px; font-family:var(--sans)}
-.prog-delta{display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:700; border-radius:999px; padding:2px 9px; background:var(--surface); border:1px solid var(--border); color:var(--text-muted); align-self:flex-start}
-.prog-delta.down{color:var(--ok); background:var(--ok-bg); border-color:var(--ok)}
-.prog-delta.up{color:var(--warn); background:var(--warn-bg); border-color:var(--warn)}
-.prog-chart{width:100%; height:56px; display:block}
-.prog-tile-wide .prog-chart{height:90px}
-/* צבעי הגרף דרך CSS ולא כאטריביוטים — משתני הטוקנים לא נקראים מאטריביוט מצגתי */
-.prog-line{fill:none; stroke:var(--primary-deep); stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
-.prog-dot{fill:var(--primary-deep)}
-.prog-dot-last{fill:var(--accent-deep)}
-.prog-axis{display:flex; justify-content:space-between; font-size:11px; color:var(--text-soft)}
+/* ---------- המדדים שלך (24.8.2026, הערות סיפי): כרטיס לבן לכל מדד + קו מגמה דק ---------- */
+.prog-grid{display:flex; flex-direction:column; gap:12px}
+/* במסך רחב הכרטיסים מסתדרים ברשת (במובייל — אחד מתחת לשני, כמו בעיצוב) */
+@media (min-width:720px){ .prog-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(340px,1fr))} }
+.prog-card{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px}
+.prog-main{display:flex; flex-direction:column; gap:3px; min-width:0}
+.prog-label{font-weight:700; font-size:15.5px}
+.prog-sub{font-size:13px; color:var(--text-muted)}
+.prog-diff.down{color:var(--ok)}
+.prog-diff.up{color:var(--warn)}
+.spark{width:120px; height:40px; flex:0 0 auto; display:block; overflow:visible}
+/* צבע הקו דרך CSS ולא כאטריביוט — משתני הטוקנים לא נקראים מאטריביוט מצגתי */
+.prog-line{fill:none; stroke:var(--accent-deep); stroke-width:1.75; stroke-linejoin:round; stroke-linecap:round}
 
 /* ---------- loading ---------- */
 .loading-row{display:flex; align-items:center; gap:12px}
@@ -329,6 +352,8 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .foot .sig{font-size:12px; letter-spacing:.06em; color:var(--text-soft)}
 
 .hidden{display:none !important}
+/* טקסט לקוראי-מסך בלבד (24.8.2026) */
+.sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition-duration:.001ms !important; animation-duration:.001ms !important}
 }
@@ -352,7 +377,7 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .btn-quiet:hover{background:transparent; color:var(--text)}
 .btn-xs{padding:3px 8px; font-size:12px}
 .stat-value{font-family:var(--serif); font-size:30px}
-.sum-total b{font-family:var(--serif); font-size:36px}
+.sum-total b{font-family:var(--serif); font-size:20px}
 .bar-fill{background:linear-gradient(90deg,var(--accent),var(--accent-deep))}
 .fill-total b{font-family:var(--serif); font-size:19px}
 
@@ -409,6 +434,11 @@ td.n,th.n{text-align:end; white-space:nowrap}
 #btnSendMeasure{border-radius:999px; padding:12px 20px}
 .meas-grid input,#measDateIn,#measNoteIn{border-color:var(--border)}
 #installCard .btn{border-radius:999px}
+/* 24.8.2026 (הערות סיפי, מסך ה-Nutrition מהעיצוב): כרטיסי הארוחות וכרטיס הסיכום יושבים ישר על
+   רקע החול — המעטפת "התפריט שלך" שקופה (בלי כרטיס-בתוך-כרטיס); פס השמירה הופך לכרטיס לבן משלו */
+#menusCard{background:transparent; box-shadow:none; border:0; padding:0 2px}
+#menuMeta{border-top:0; padding-top:0; margin-top:-6px}
+#fillSaveBar{background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; border-top:0}
 /* ==== SAND-SERIF-END ==== */
 </style>
 </head>
@@ -580,14 +610,10 @@ td.n,th.n{text-align:end; white-space:nowrap}
       </div>
     </section>
 
-    <!-- ההתקדמות שלי (23.8.2026, בקשת סיפי): טאב "יעדים" הוא מסך מלא של אריחים —
-         היעדים, המדדים לאורך הזמן (גרף זעיר לכל עמודה מספרית) והנקודות החשובות -->
-    <section class="card stack hidden" id="progressCard" data-view="targets">
-      <div>
-        <span class="eyebrow">ההתקדמות שלי</span>
-        <h2 class="card-title">המדדים שלך</h2>
-      </div>
-      <p class="lede">מתעדכן אוטומטית בכל שקילה או מדידה שסיוון מאשרת.</p>
+    <!-- המדדים שלך (24.8.2026, הערות סיפי): כרטיס לבן לכל מדד — כמו כרטיס "Weight trend" בעיצוב:
+         שם המדד, הערך האחרון והשינוי מאז ההתחלה, וקו מגמה דק בצד. לא אריחים, לא ערכים ענקיים -->
+    <section class="stack hidden" id="progressCard" data-view="targets">
+      <h2 class="sec-title">המדדים שלך</h2>
       <div class="prog-grid" id="progGrid"></div>
     </section>
 
@@ -597,7 +623,7 @@ td.n,th.n{text-align:end; white-space:nowrap}
         <h2 class="card-title">נקודות חשובות</h2>
       </div>
       <div class="stack-sm" id="summaryWarnings"></div>
-      <div class="sum-tiles" id="summaryPoints"></div>
+      <div class="sum-list" id="summaryPoints"></div>
     </section>
 
     <section class="card stack hidden" id="menusCard" data-view="menu">
@@ -793,8 +819,10 @@ function refreshPortalNav(){
   for (var i=0;i<btns.length;i++){
     (function(b){ b.addEventListener("click", function(){ showView(b.getAttribute("data-view")); }); })(btns[i]);
   }
+  /* 24.8.2026: ה-CTA מהבית לא רק מחליף מסך — הוא פותח את הארוחה הראשונה שעוד לא
+     סומנה, כדי שהלקוחה תתחיל למלא בלי לחפש איפה ללחוץ */
   var go = $("btnGoFill");
-  if (go) go.addEventListener("click", function(){ showView("menu"); });
+  if (go) go.addEventListener("click", function(){ showView("menu"); openFirstMeal(); });
 })();
 
 /* ---------- מצבי עמוד ---------- */
@@ -851,6 +879,9 @@ var CATALOG = [];            /* מזונות מ-catalog/main: {id,name,cat,kcal1
 var CATALOG_READY = false;
 var ACTIVE_MENU_IDX = 0;
 var FILL_CHOICES = {};       /* "menuIdx:mealIdx" → מערך {name, grams, kcal100, free} */
+/* 24.8.2026: איזו ארוחה פתוחה באקורדיון, לפי אותו מפתח. showMenu נקרא מחדש בכל טעינת
+   קטלוג/תשובה ובכל בחירת תפריט — בלי הזיכרון הזה כל רינדור היה סוגר את מה שנפתח */
+var MEAL_OPEN = {};
 var SAVED_AT = "";           /* updatedAt של המסמך השמור בענן */
 
 /* ---------- חשבון אישי (22.8.2026): מצב ---------- */
@@ -891,6 +922,18 @@ function choicesTotal(rows){
   var sum = 0;
   for (var i=0;i<rows.length;i++) sum += rowKcal(rows[i]);
   return sum;
+}
+
+/* יש בשורות משהו שבאמת יישמר? אותו כלל בדיוק כמו saveChoices — שורה חופשית, או
+   שורה עם גרמים חיוביים. שורה שנשארה על 0 גרם לא מדליקה את עיגול ה-וי (סקירה 24.8.2026) */
+function hasSavableRows(rows){
+  for (var i=0;i<rows.length;i++){
+    var r = rows[i];
+    if (!r) continue;
+    if (r.free === true) return true;
+    if (Math.round(Number(r.grams) || 0) > 0) return true;
+  }
+  return false;
 }
 
 /* חיפוש בקטלוג (QA 20.8.2026): סלחני לרישיות/רווחים וצירופי מילים —
@@ -948,8 +991,10 @@ function renderTargets(targets){
   show(card, true);
 }
 
-/* ---------- מילוי עצמי: הממשק בתוך כרטיס ארוחה עם תקציב ---------- */
-function buildFillSection(meal, menuIdx, mealIdx){
+/* ---------- מילוי עצמי: הממשק בתוך כרטיס ארוחה עם תקציב ----------
+   onChange (24.8.2026, לא חובה): מודיע לכרטיס הארוחה אם יש כרגע בחירות, כדי
+   שעיגול ה-וי בכותרת יתהפך מיד עם הוספה/הסרה — עוד לפני השמירה */
+function buildFillSection(meal, menuIdx, mealIdx, onChange){
   var budget = mealBudgetOf(meal);
   var key = fillKey(menuIdx, mealIdx);
   if (!Object.prototype.hasOwnProperty.call(FILL_CHOICES, key)) FILL_CHOICES[key] = [];
@@ -993,6 +1038,7 @@ function buildFillSection(meal, menuIdx, mealIdx){
     total.classList.toggle("over", over);
     show(alertBox, over);
     refreshSaveBar();
+    if (typeof onChange === "function") onChange(hasSavableRows(rows));
   }
 
   function buildRow(row){
@@ -1084,22 +1130,99 @@ function macroLine(protein, carbs, fat){
   return parts.join(" · ");
 }
 
+/* פתיחה/סגירה של כרטיס ארוחה (24.8.2026) — נקודה אחת לשני המסלולים: לחיצה על
+   הכותרת, ופתיחה יזומה מה-CTA של הבית. המצב נזכר לפי מפתח הארוחה */
+function setMealOpen(card, open){
+  if (!card) return;
+  var btn = card.querySelector(".meal-toggle");
+  var body = card.querySelector(".meal-body");
+  card.setAttribute("data-open", open ? "true" : "false");
+  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+  if (body) body.hidden = !open;
+  var key = card.getAttribute("data-meal-key");
+  if (key) MEAL_OPEN[key] = !!open;
+}
+
+/* ה-CTA "למילוי התפריט" מהבית: פותח את הארוחה הראשונה שעוד לא סומנה (ואם כולן
+   סומנו — את הראשונה) וגולל אליה. אין תפריט על המסך → לא קורה כלום */
+function openFirstMeal(){
+  var wrap = $("menuBody");
+  if (!wrap) return;
+  var cards = wrap.querySelectorAll(".meal");
+  if (!cards.length) return;
+  var target = null;
+  for (var i=0; i<cards.length; i++){
+    var mk = cards[i].querySelector(".meal-mark");
+    if (!mk || !mk.classList.contains("done")){ target = cards[i]; break; }
+  }
+  if (!target) target = cards[0];
+  if (target.getAttribute("data-open") !== "true") setMealOpen(target, true);
+  try { target.scrollIntoView({block:"start", behavior:"smooth"}); } catch (e){}
+}
+
+/* כרטיס ארוחה = אקורדיון (24.8.2026, הערות סיפי): הכותרת מספרת את הסיפור —
+   סומן/לא סומן, שם הארוחה, שלושת המזונות הראשונים והקק"ל של מה שסיוון בנתה —
+   והפירוט (השורות + המילוי העצמי) נפתח רק בלחיצה */
 function mealCard(meal, menuIdx, mealIdx){
   var card = el("article","card meal");
+  card.setAttribute("data-open","false");
   var m = objOf(meal) || {};
   var sums = objOf(m.sums) || {};
-  var head = el("div","meal-head");
-  head.appendChild(el("h3", null, textOf(m.name) || "ארוחה"));
-  var tot = el("div","meal-total");
+  var rows = arrOf(m.rows);
+  var key = fillKey(menuIdx, mealIdx);
+  var bodyId = "mealBody-" + menuIdx + "-" + mealIdx;
+  card.setAttribute("data-meal-key", key);
+
+  var btn = el("button","meal-toggle");
+  btn.type = "button";
+  btn.setAttribute("aria-expanded","false");
+  btn.setAttribute("aria-controls", bodyId);
+
+  var mark = el("span","meal-mark");
+  mark.setAttribute("aria-hidden","true");
+  var initDone = hasSavableRows(arrOf(FILL_CHOICES[key]));
+  if (initDone) mark.classList.add("done");
+  btn.appendChild(mark);
+  /* העיגול מצויר ב-CSS בלבד — קורא-מסך שומע את המצב מהטקסט הסמוי הזה (סקירה 24.8.2026) */
+  var markSr = el("span","sr-only", initDone ? "הארוחה מולאה" : "");
+  btn.appendChild(markSr);
+
+  var headText = el("span","meal-head-text");
+  headText.appendChild(el("span","meal-name", textOf(m.name) || "ארוחה"));
+  /* תת-הכותרת: שלושת המזונות הראשונים, ו-"+N" על מה שלא נכנס — כמו במסך העיצוב */
+  var names = [];
+  for (var s=0; s<rows.length; s++){
+    var nm = textOf((objOf(rows[s]) || {}).name).trim();
+    if (nm !== "") names.push(nm);
+  }
+  if (names.length){
+    var subText = names.slice(0, 3).join(", ");
+    if (names.length > 3) subText += " +" + (names.length - 3);
+    headText.appendChild(el("span","meal-sub", subText));
+  }
+  btn.appendChild(headText);
+
+  var tot = el("span","meal-kcal");
   tot.appendChild(el("b","num", numText(sums.kcal, 0)));
-  tot.appendChild(el("span", null, "קק\"ל"));
-  head.appendChild(tot);
-  card.appendChild(head);
+  tot.appendChild(el("small", null, "קק\"ל"));
+  btn.appendChild(tot);
+
+  var chev = el("span","meal-chev");
+  chev.setAttribute("aria-hidden","true");
+  btn.appendChild(chev);
+  btn.addEventListener("click", function(){
+    setMealOpen(card, card.getAttribute("data-open") !== "true");
+  });
+  card.appendChild(btn);
+
+  var body = el("div","meal-body");
+  body.id = bodyId;
+  body.hidden = true;
+  card.appendChild(body);
 
   /* 23.8.2026 (בקשת סיפי): רשימה מוערמת במקום טבלה — הטבלה חייבה גלילה לצדדים
      בטלפון. שורה לכל מזון: שם (+ רמז יחידות) · כמות · קק"ל, ומתחת שורת מאקרו קטנה */
   var list = el("div","meal-rows");
-  var rows = arrOf(m.rows);
   for (var i=0; i<rows.length; i++){
     var r = objOf(rows[i]) || {};
     var line = el("div","meal-row");
@@ -1126,29 +1249,39 @@ function mealCard(meal, menuIdx, mealIdx){
   var sumMacro = macroLine(sums.protein, sums.carbs, sums.fat);
   if (sumMacro) sumLine.appendChild(el("div","mr-macro", sumMacro));
   list.appendChild(sumLine);
-  card.appendChild(list);
+  body.appendChild(list);
+
+  /* עיגול ה-וי מתעדכן חי מתוך אזור המילוי — "מה שסימנת" זה גם מה שיישמר */
+  function markRefresh(done){
+    mark.classList.toggle("done", !!done);
+    markSr.textContent = done ? "הארוחה מולאה" : "";
+  }
 
   /* 21.8: אזור המילוי בכל ארוחה (כשהקטלוג טעון) — לא רק בארוחות עם תקציב */
-  if (CATALOG_READY) card.appendChild(buildFillSection(m, menuIdx, mealIdx));
+  if (CATALOG_READY) body.appendChild(buildFillSection(m, menuIdx, mealIdx, markRefresh));
+  if (MEAL_OPEN[key]) setMealOpen(card, true);
   return card;
 }
 
+/* בר הסיכום של התפריט (24.8.2026): עולה עכשיו בראש מסך התפריט ולא בסופו — כמו
+   שורת "Today 1,030 / 2,100 kcal" בעיצוב: קודם רואים איפה עומדים, ואז את הארוחות */
 function menuSummary(menu, targets){
   var box = el("div","card stack menu-sum");
   var totals = objOf(menu.totals) || {};
-  var head = el("div","sum-head");
-  var tot = el("div","sum-total");
-  tot.appendChild(el("b","num", numText(totals.kcal, 0)));
-  tot.appendChild(el("span", null, "קק\"ל בסך הכול"));
-  head.appendChild(tot);
-  head.appendChild(el("p","lede",
-    "חלבון " + numText(totals.protein, 1) + " ג' · פחמימה " + numText(totals.carbs, 1) + " ג' · שומן " + numText(totals.fat, 1) + " ג'"));
-  box.appendChild(head);
-
   var t = objOf(targets) || {};
   var goal = Number(t.kcal);
   var done = Number(totals.kcal);
-  if (isFinite(goal) && goal > 0 && isFinite(done) && done >= 0){
+  var hasGoal = isFinite(goal) && goal > 0;
+
+  var head = el("div","sum-head");
+  head.appendChild(el("span","sum-head-label","סה\"כ התפריט"));
+  var tot = el("span","sum-total");
+  tot.appendChild(el("b","num", numText(totals.kcal, 0)));
+  tot.appendChild(el("span", null, hasGoal ? (" / " + numText(goal, 0) + " קק\"ל") : " קק\"ל"));
+  head.appendChild(tot);
+  box.appendChild(head);
+
+  if (hasGoal && isFinite(done) && done >= 0){
     var bar = el("div","bar bar-accent");
     var fill = el("div","bar-fill");
     var pct = Math.round((done / goal) * 100);
@@ -1158,6 +1291,9 @@ function menuSummary(menu, targets){
     bar.appendChild(fill);
     box.appendChild(bar);
   }
+
+  box.appendChild(el("p","lede",
+    "חלבון " + numText(totals.protein, 1) + " ג' · פחמימה " + numText(totals.carbs, 1) + " ג' · שומן " + numText(totals.fat, 1) + " ג'"));
 
   var vs = objOf(menu.vs) || {};
   var chips = el("div","row-flex");
@@ -1196,12 +1332,27 @@ function showMenu(idx){
   show(meta, true);
 
   ACTIVE_MENU_IDX = idx;
+  /* 24.8.2026: הסיכום ראשון (בר "סה"כ התפריט"), ואחריו רשימת הארוחות */
+  body.appendChild(menuSummary(menu, PORTAL_TARGETS));
   var meals = arrOf(menu.meals);
   for (var i=0; i<meals.length; i++){
     body.appendChild(mealCard(meals[i], idx, i));
   }
-  body.appendChild(menuSummary(menu, PORTAL_TARGETS));
   refreshSaveBar();
+}
+
+/* רשימת התפריטים כפי שהיא מוצגת: אובייקטים בלבד, מהחדש לישן (סקירה 24.8.2026).
+   גם renderMenus וגם applyResponse חייבים לעבוד על אותו סדר בדיוק — מפתחות
+   FILL_CHOICES הם לפי אינדקס התפריט, וסדר שונה היה משחזר בחירות לתפריט הלא-נכון */
+function sortedShareMenus(menus){
+  var list = [];
+  var raw = arrOf(menus);
+  for (var i=0; i<raw.length; i++){
+    var m = objOf(raw[i]);
+    if (m) list.push(m);
+  }
+  list.sort(function(a,b){ return textOf(b.savedAt).localeCompare(textOf(a.savedAt)); });
+  return list;
 }
 
 function renderMenus(menus, targets){
@@ -1212,15 +1363,9 @@ function renderMenus(menus, targets){
   PORTAL_TARGETS = objOf(targets);
   PORTAL_MENUS = [];
 
-  var list = [];
-  var raw = arrOf(menus);
-  for (var i=0; i<raw.length; i++){
-    var m = objOf(raw[i]);
-    if (m) list.push(m);
-  }
+  var list = sortedShareMenus(menus);
   if (!list.length){ show(card, false); show(pick, false); show($("menuMeta"), false); return; }
 
-  list.sort(function(a,b){ return textOf(b.savedAt).localeCompare(textOf(a.savedAt)); });
   PORTAL_MENUS = list;
   show(card, true);
 
@@ -1336,13 +1481,15 @@ function renderTracking(tracking){
   show(card, true);
 }
 
-/* ---------- ההתקדמות שלי (23.8.2026, בקשת סיפי) ----------
-   אריח לכל עמודה מספרית בטבלת המעקב: הערך האחרון, השינוי מאז המדידה הראשונה,
-   וגרף קו זעיר (SVG מקומי, בלי שום ספרייה). הנתונים הם בדיוק אותם נתונים של
-   הטבלה — אין כאן חישוב, רק מינימום/מקסימום לסקאלה. עמודות טקסט (הערות) נושרות
-   מעצמן, כי אין בהן אף ערך שמתפרש כמספר */
+/* ---------- המדדים שלך (24.8.2026, הערות סיפי) ----------
+   כרטיס לבן לכל עמודה מספרית בטבלת המעקב: שם המדד, הערך האחרון והשינוי מאז
+   המדידה הראשונה, וקו מגמה דק בצד (SVG מקומי, בלי שום ספרייה). הנתונים הם בדיוק
+   אותם נתונים של הטבלה — אין כאן חישוב, רק מינימום/מקסימום לסקאלה. עמודות טקסט
+   (הערות) נושרות מעצמן, כי אין בהן אף ערך שמתפרש כמספר.
+   הזמן זורם עכשיו משמאל לימין (עד 23.8 הוא זרם הפוך, לפי כיוון הקריאה בעברית):
+   כך הקו נקרא כמו גרף רגיל — המדידה הישנה בקצה השמאלי, החדשה בימני, וירידה
+   במשקל יורדת לכיוון ימין. זו בקשה מפורשת של סיפי (24.8.2026), כמו במוקאפ */
 var SVG_NS = "http://www.w3.org/2000/svg";
-var PROG_SEQ = 0;   /* מזהה ייחודי לגרדיאנט של כל גרף — defs חייב id שאינו חוזר */
 
 function svgEl(tag, cls){
   var e = document.createElementNS(SVG_NS, tag);
@@ -1364,15 +1511,14 @@ function progUnit(label){
 }
 function progRound(x){ return Math.round(x * 100) / 100; }
 
-/* הגרף עצמו. הזמן זורם מימין לשמאל — כמו הקריאה בעמוד, וכמו פסי ההתקדמות שלו.
-   preserveAspectRatio="none" מותח את הציור לרוחב האריח; לכן הקו מצויר עם
-   vector-effect (עובי קבוע במסך) והנקודות קטנות דיין כדי לא להיראות מעוותות */
-function progChart(pts, wide){
-  var vbH = wide ? 30 : 36;
-  var pad = 4;
-  var svg = svgEl("svg","prog-chart");
-  svg.setAttribute("viewBox", "0 0 100 " + vbH);
-  svg.setAttribute("preserveAspectRatio","none");
+/* קו המגמה: קו דק אחד, בלי מילוי, בלי נקודות ובלי ציר תאריכים — רק צורת השינוי.
+   מידת ה-SVG במסך זהה ליחס ה-viewBox, ולכן אין preserveAspectRatio ואין עיוות;
+   ה-vector-effect משאיר את עובי הקו קבוע. הזמן: הישן ב-x≈pad, החדש ב-x≈120−pad */
+function sparkline(pts){
+  var vbH = 40;
+  var pad = 3;
+  var svg = svgEl("svg","spark");
+  svg.setAttribute("viewBox", "0 0 120 " + vbH);
   svg.setAttribute("aria-hidden","true");
 
   var lo = pts[0].v, hi = pts[0].v;
@@ -1384,92 +1530,54 @@ function progChart(pts, wide){
   if (span <= 0){ lo -= 1; hi += 1; }        /* כל הערכים זהים → קו ישר באמצע */
   else { lo -= span * 0.1; hi += span * 0.1; }
 
-  var xs = [], ys = [];
+  var seq = [];
   for (var j=0; j<pts.length; j++){
     var t = (pts.length === 1) ? 0.5 : (j / (pts.length - 1));
-    xs.push(progRound(100 - (pad + t * (100 - pad * 2))));
-    ys.push(progRound(vbH - pad - ((pts[j].v - lo) / (hi - lo)) * (vbH - pad * 2)));
+    var x = progRound(pad + t * (120 - pad * 2));
+    var y = progRound(vbH - pad - ((pts[j].v - lo) / (hi - lo)) * (vbH - pad * 2));
+    seq.push(x + "," + y);
   }
-
-  var gid = "progGrad" + (++PROG_SEQ);
-  var defs = svgEl("defs");
-  var grad = svgEl("linearGradient");
-  grad.setAttribute("id", gid);
-  grad.setAttribute("x1","0"); grad.setAttribute("y1","0");
-  grad.setAttribute("x2","0"); grad.setAttribute("y2","1");
-  var stop1 = svgEl("stop");
-  stop1.setAttribute("offset","0");
-  stop1.setAttribute("style","stop-color:var(--accent); stop-opacity:.35");
-  var stop2 = svgEl("stop");
-  stop2.setAttribute("offset","1");
-  stop2.setAttribute("style","stop-color:#C9A86D; stop-opacity:0");
-  grad.appendChild(stop1);
-  grad.appendChild(stop2);
-  defs.appendChild(grad);
-  svg.appendChild(defs);
-
-  if (pts.length > 1){
-    var d = ["M " + xs[0] + " " + vbH];
-    for (var a=0; a<xs.length; a++) d.push("L " + xs[a] + " " + ys[a]);
-    d.push("L " + xs[xs.length-1] + " " + vbH);
-    d.push("Z");
-    var area = svgEl("path");
-    area.setAttribute("d", d.join(" "));
-    area.setAttribute("fill", "url(#" + gid + ")");
-    svg.appendChild(area);
-
-    var line = svgEl("polyline","prog-line");
-    var seq = [];
-    for (var b=0; b<xs.length; b++) seq.push(xs[b] + "," + ys[b]);
-    line.setAttribute("points", seq.join(" "));
-    line.setAttribute("vector-effect","non-scaling-stroke");
-    svg.appendChild(line);
-  }
-  for (var c=0; c<xs.length; c++){
-    var last = (c === xs.length - 1);
-    var dot = svgEl("circle", last ? "prog-dot prog-dot-last" : "prog-dot");
-    dot.setAttribute("cx", String(xs[c]));
-    dot.setAttribute("cy", String(ys[c]));
-    dot.setAttribute("r", last ? "3.2" : "2.2");
-    svg.appendChild(dot);
-  }
+  var line = svgEl("polyline","prog-line");
+  line.setAttribute("points", seq.join(" "));
+  line.setAttribute("vector-effect","non-scaling-stroke");
+  svg.appendChild(line);
   return svg;
 }
 
-function progTile(col, pts, wide){
-  var tile = el("div", wide ? "prog-tile prog-tile-wide" : "prog-tile");
+/* כרטיס מדד אחד: "משקל" / "66.1 ק״ג · ↓ 1.8 ק״ג מאז ההתחלה" + קו המגמה בצד */
+function progCard(col, pts){
+  var card = el("article","card prog-card");
   var label = textOf(col.label) || textOf(col.id);
-  tile.appendChild(el("span","prog-label", label));
-
-  var last = pts[pts.length-1].v;
-  var valueEl = el("span","prog-value num", numText(last, 1));
   var unit = progUnit(label);
-  if (unit) valueEl.appendChild(el("span","prog-unit", unit));
-  tile.appendChild(valueEl);
+  var last = pts[pts.length-1].v;
 
-  var delta = el("span","prog-delta");
+  var main = el("div","prog-main");
+  main.appendChild(el("span","prog-label", label));
+
+  var sub = el("span","prog-sub");
+  sub.appendChild(el("span","num", numText(last, 1)));
+  if (unit) sub.appendChild(document.createTextNode(" " + unit));
   if (pts.length < 2){
-    delta.textContent = "מדידה ראשונה";
+    sub.appendChild(document.createTextNode(" · מדידה ראשונה"));
   } else {
     var diff = Math.round((last - pts[0].v) * 10) / 10;
     if (diff === 0){
-      delta.textContent = "ללא שינוי";
-    } else if (diff < 0){
-      delta.className = "prog-delta down";
-      delta.textContent = "↓ " + numText(-diff, 1);
+      sub.appendChild(document.createTextNode(" · ללא שינוי מאז ההתחלה"));
     } else {
-      delta.className = "prog-delta up";
-      delta.textContent = "↑ " + numText(diff, 1);
+      sub.appendChild(document.createTextNode(" · "));
+      var d = el("span", diff < 0 ? "prog-diff down" : "prog-diff up");
+      d.appendChild(document.createTextNode(diff < 0 ? "↓ " : "↑ "));
+      d.appendChild(el("span","num", numText(diff < 0 ? -diff : diff, 1)));
+      if (unit) d.appendChild(document.createTextNode(" " + unit));
+      sub.appendChild(d);
+      sub.appendChild(document.createTextNode(" מאז ההתחלה"));
     }
   }
-  tile.appendChild(delta);
-  tile.appendChild(progChart(pts, wide));
+  main.appendChild(sub);
+  card.appendChild(main);
 
-  var axis = el("div","prog-axis");
-  axis.appendChild(el("span", null, isoDateText(pts[0].iso)));
-  if (pts.length > 1) axis.appendChild(el("span", null, isoDateText(pts[pts.length-1].iso)));
-  tile.appendChild(axis);
-  return tile;
+  if (pts.length >= 2) card.appendChild(sparkline(pts));
+  return card;
 }
 
 function renderProgress(tracking){
@@ -1502,8 +1610,7 @@ function renderProgress(tracking){
       pts.push({iso:dates[i], v:v});
     }
     if (!pts.length) continue;   /* עמודת טקסט (הערות) — אין מה לצייר */
-    /* המדד הראשון (בדרך כלל משקל) מקבל אריח רחב על שתי העמודות */
-    grid.appendChild(progTile(cols[c], pts, shown === 0));
+    grid.appendChild(progCard(cols[c], pts));
     shown++;
   }
   show(card, shown > 0);
@@ -1762,17 +1869,22 @@ function renderSummary(summary){
     var cls = warnings[a].indexOf("דגל אדום") > -1 ? "alert alert-bad" : "alert";
     warnBox.appendChild(el("div", cls, warnings[a]));
   }
-  /* אריח לכל נקודה: הכותרת שלפני ה-": " נפרדת מהתוכן (23.8.2026) */
+  /* שורת רשימה לכל נקודה (24.8.2026): סימן זהב, ומעליו הכותרת שלפני ה-": " */
   for (var b=0; b<points.length; b++){
-    var tile = el("div","sum-tile");
+    var row = el("div","sum-row");
+    var mark = el("span","sum-mark");
+    mark.setAttribute("aria-hidden","true");
+    row.appendChild(mark);
+    var bodyEl = el("div","sum-body");
     var at = points[b].indexOf(": ");
     if (at > -1){
-      tile.appendChild(el("span","sum-tile-label", points[b].slice(0, at)));
-      tile.appendChild(el("span","sum-tile-text", points[b].slice(at + 2)));
+      bodyEl.appendChild(el("span","sum-label", points[b].slice(0, at)));
+      bodyEl.appendChild(el("span","sum-text", points[b].slice(at + 2)));
     } else {
-      tile.appendChild(el("span","sum-tile-text", points[b]));
+      bodyEl.appendChild(el("span","sum-text", points[b]));
     }
-    pointsBox.appendChild(tile);
+    row.appendChild(bodyEl);
+    pointsBox.appendChild(row);
   }
   show(card, true);
 }
@@ -1957,7 +2069,9 @@ function applyResponse(snap, shareData){
   if (!data) return;
   SAVED_AT = textOf(data.updatedAt);
   var saved = arrOf(data.meals);
-  var menus = arrOf(shareData && shareData.menus);
+  /* אותו מיון כמו התצוגה (sortedShareMenus) — mi כאן חייב להצביע על אותו תפריט
+     שהמסך מצייר באותו אינדקס, אחרת הבחירות נדבקות לתפריט הלא-נכון (סקירה 24.8.2026) */
+  var menus = sortedShareMenus(shareData && shareData.menus);
   /* שמות התפריטים הקיימים כרגע — שם שמור שלא קיים יותר (סיוון שינתה שם תפריט)
      חוזר להתאמה לפי שם ארוחה בלבד, כדי שהבחירות לא ייעלמו (ביקורת 20.8) */
   var liveNames = {};
@@ -2119,7 +2233,7 @@ function loadShare(token, source){
   /* 23.8.2026: איפוס כל המצב שתלוי בשיתוף. העמוד יודע לטעון עכשיו יותר משיתוף אחד בחיים שלו
      (זיכרון-מכשיר→חשבון מקושר, קישור אחר באותו טאב) — בלי האיפוס הבחירות, שעת השמירה,
      הקטלוג והטאב הפעיל של הלקוחה הקודמת נשארים על המסך ואף נשמרים לתוכנית החדשה */
-  SHARE = null; FILL_CHOICES = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
+  SHARE = null; FILL_CHOICES = {}; MEAL_OPEN = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
   PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
   MEAS_SAVING = false;
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
