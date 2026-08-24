@@ -345,6 +345,9 @@ details.choice-fold[open] > summary.choice-meal-head::after{transform:rotate(180
 .meal-budget-input{width:74px; padding:6px 9px}
 .meal-budget-note{font-size:11.5px; color:var(--text-soft); font-weight:600; white-space:nowrap}
 .meal-budget-note:empty{display:none}
+/* תקציב לפי אבות מזון (24.8.2026): שורת שדות מתחת לכותרת הארוחה */
+.meal-cat-budgets{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:8px 14px; background:var(--surface-2); border-bottom:1px solid var(--border)}
+.meal-cat-field{display:flex; align-items:center; gap:5px}
 /* קיפול כרטיס ארוחה בבונה (18.8): הכותרת נשארת, השורות והפעולות מוסתרות */
 .meal-fold-btn{appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--text-soft); border-radius:8px; width:30px; height:30px; font-size:14px; line-height:1; cursor:pointer; flex:0 0 auto; transition:transform .15s}
 .meal-fold-btn:hover{color:var(--text); border-color:var(--border-strong)}
@@ -882,7 +885,7 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <button class="btn btn-quiet btn-sm" id="btnMenuCopy" type="button">העתק כטקסט</button>
         <button class="btn btn-quiet btn-sm" id="btnMenuReset" type="button">איפוס</button>
       </div>
-      <p class="note-line">הכמויות בגרמים. בחירת מזון בשורה ריקה ממלאת אוטומטית את משקל המנה הביתית — ואפשר לשנות אותו חופשי. "תקציב ללקוח" בכותרת ארוחה = כמה קק"ל הלקוח/ה בוחר/ת לבד בקישור האישי; גם בלי תקציב הלקוח/ה יכול/ה לרשום בקישור מה אכל/ה בפועל. כל שינוי כאן נשמר אוטומטית כטיוטה.</p>
+      <p class="note-line">הכמויות בגרמים. בחירת מזון בשורה ריקה ממלאת אוטומטית את משקל המנה הביתית — ואפשר לשנות אותו חופשי. "תקציב ללקוח" בכותרת ארוחה = כמה קק"ל הלקוח/ה בוחר/ת לבד בקישור האישי; גם בלי תקציב הלקוח/ה יכול/ה לרשום בקישור מה אכל/ה בפועל. "תקציב לפי אבות מזון" (פחמימה/חלבון/שומן בקק"ל) מחליף בארוחה הזו את המילוי החופשי: הלקוח/ה בוחר/ת מזון לכל קטגוריה ומקבל/ת כמות גרמים מחושבת בדיוק לפי הקלוריות. כל שינוי כאן נשמר אוטומטית כטיוטה.</p>
     </div>
 
     <div class="card stack hidden" id="daySummary">
@@ -2043,6 +2046,33 @@ function normalizeMealBudget(raw){
   return Math.round(b);
 }
 
+/* תקציב לפי אבות מזון (24.8.2026, בקשת סיוון): פחמימה/חלבון/שומן בקק"ל לארוחה.
+   כשמוגדר — הלקוחה בוחרת בפורטל מזון לכל קטגוריה ומקבלת גרמים מחושבים לפי הקלוריות,
+   וזה מחליף בארוחה הזו את התקציב הכללי. כל ערך מנורמל כמו תקציב ארוחה;
+   כשאין אף ערך — null, כדי שמסמכים ישנים יישארו בדיוק כפי שהם */
+var CAT_BUDGET_KEYS = ["carb","protein","fat"];
+var CAT_BUDGET_LABELS = {carb:"פחמימה", protein:"חלבון", fat:"שומן"};
+function normalizeCatBudgets(raw){
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  var out = {}, any = false, i, k, v;
+  for (i=0;i<CAT_BUDGET_KEYS.length;i++){
+    k = CAT_BUDGET_KEYS[i];
+    v = normalizeMealBudget(raw[k]);
+    out[k] = v;
+    if (v !== null) any = true;
+  }
+  return any ? out : null;
+}
+function catBudgetsTotal(cb){
+  if (!cb || typeof cb !== "object") return 0;
+  var sum = 0, i, v;
+  for (i=0;i<CAT_BUDGET_KEYS.length;i++){
+    v = cb[CAT_BUDGET_KEYS[i]];
+    if (typeof v === "number" && isFinite(v) && v > 0) sum += v;
+  }
+  return Math.round(sum);
+}
+
 /* מצב עמידה בתקציב ארוחה: null אם אין תקציב; אחרת over=true בחריגה מעל התקציב */
 function mealBudgetStatus(kcal, budget){
   var b = normalizeMealBudget(budget);
@@ -2056,7 +2086,7 @@ function defaultMeals(n){
   if (k < 1) k = 1;
   if (k > 12) k = 12;
   var out = [];
-  for (var i=0;i<k;i++) out.push({name:mealName(i), rows:[], budget:null});
+  for (var i=0;i<k;i++) out.push({name:mealName(i), rows:[], budget:null, catBudgets:null});
   return out;
 }
 
@@ -2113,7 +2143,9 @@ function normalizeResponseDoc(raw){
       if (rc !== null && rc < 0) rc = 0;
       if (rf !== null && rf < 0) rf = 0;
       if (rp !== null || rc !== null || rf !== null) hasMacros = true;
-      rows.push({name:r.name, grams:Math.round(g), kcal:Math.round(k), free:free,
+      /* קטגוריית אב-המזון של הבחירה (24.8.2026) — רק ערכים מוכרים; "" למסמכים ישנים */
+      var rcat = (r.cat === "carb" || r.cat === "protein" || r.cat === "fat" || r.cat === "veg") ? r.cat : "";
+      rows.push({name:r.name, grams:Math.round(g), kcal:Math.round(k), free:free, cat:rcat,
                  protein:rp === null ? 0 : rp, carbs:rc === null ? 0 : rc, fat:rf === null ? 0 : rf});
       kcal += Math.round(k);
       protein += rp === null ? 0 : rp;
@@ -2820,7 +2852,7 @@ function normalizeMeals(raw){
     var m = raw[i];
     if (!m || typeof m !== "object") continue;
     var name = (typeof m.name === "string" && m.name !== "") ? m.name : mealName(out.length);
-    out.push({name:name, rows:normalizeMenuRows(m.rows), budget:normalizeMealBudget(m.budget)});
+    out.push({name:name, rows:normalizeMenuRows(m.rows), budget:normalizeMealBudget(m.budget), catBudgets:normalizeCatBudgets(m.catBudgets)});
   }
   return out;
 }
@@ -3546,9 +3578,11 @@ function renderClientChoices(){
     }
     for (var j=0;j<m.rows.length;j++){
       var r = m.rows[j];
+      /* בחירה בשיטת אבות-המזון (24.8.2026) — הקטגוריה מוצגת לפני שם המזון */
+      var catPrefix = (r.cat && CAT_BUDGET_LABELS[r.cat]) ? (CAT_BUDGET_LABELS[r.cat] + " · ") : "";
       var line = r.free
-        ? (r.name + " · חופשי")
-        : (r.name + " · " + r.grams.toLocaleString("he-IL") + " ג' · " + r.kcal.toLocaleString("he-IL") + " קק\"ל");
+        ? (catPrefix + r.name + " · חופשי")
+        : (catPrefix + r.name + " · " + r.grams.toLocaleString("he-IL") + " ג' · " + r.kcal.toLocaleString("he-IL") + " קק\"ל");
       box.appendChild(el("div","choice-row", line));
     }
     body.appendChild(box);
@@ -5069,6 +5103,7 @@ function shareMenuDoc(byId, menu, targets){
       name: meals[i].name,
       rows: rows,
       budget: normalizeMealBudget(meals[i].budget),   /* null ולא undefined — Firestore דוחה undefined */
+      catBudgets: normalizeCatBudgets(meals[i].catBudgets),   /* תקציב לפי אבות מזון (24.8.2026) — null כשאין */
       sums: {kcal:per.kcal, protein:per.protein, carbs:per.carbs, fat:per.fat}
     });
   }
@@ -5907,7 +5942,7 @@ function copyMeals(meals){
         grams: (isFinite(g) && g > 0) ? g : 0
       });
     }
-    out.push({name: (typeof m.name === "string" && m.name !== "") ? m.name : mealName(out.length), rows:rows, budget:normalizeMealBudget(m.budget)});
+    out.push({name: (typeof m.name === "string" && m.name !== "") ? m.name : mealName(out.length), rows:rows, budget:normalizeMealBudget(m.budget), catBudgets:normalizeCatBudgets(m.catBudgets)});
   }
   return out;
 }
@@ -5922,7 +5957,7 @@ function cleanMealsForSave(){
       if (!isFinite(g) || g <= 0) continue;
       rows.push({foodId:m.rows[j].foodId, grams:g});
     }
-    out.push({name:m.name, rows:rows, budget:normalizeMealBudget(m.budget)});
+    out.push({name:m.name, rows:rows, budget:normalizeMealBudget(m.budget), catBudgets:normalizeCatBudgets(m.catBudgets)});
   }
   return out;
 }
@@ -6416,6 +6451,52 @@ function buildMealCard(foods, meal){
   });
   head.appendChild(del);
   card.appendChild(head);
+
+  /* תקציב לפי אבות מזון (24.8.2026, בקשת סיוון): פחמימה/חלבון/שומן בקק"ל. כשמוגדר —
+     הלקוחה בוחרת בפורטל מזון לכל קטגוריה ומקבלת גרמים מחושבים, והתקציב הכללי מנוטרל */
+  var catWrap = el("div","meal-cat-budgets");
+  catWrap.appendChild(el("span","meal-budget-label","תקציב לפי אבות מזון:"));
+  var catIns = {};
+  function syncCatBudgetState(){
+    var has = !!meal.catBudgets;
+    budgetIn.disabled = has;
+    budgetIn.title = has ? "בארוחה זו המילוי לפי אבות מזון — התקציב הכללי לא בשימוש" : "";
+  }
+  for (var ck=0; ck<CAT_BUDGET_KEYS.length; ck++){
+    (function(key){
+      var lab = el("label","meal-cat-field");
+      lab.appendChild(el("span","meal-budget-label", CAT_BUDGET_LABELS[key]));
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.min = "0";
+      inp.step = "10";
+      inp.placeholder = "—";
+      inp.className = "meal-budget-input";
+      var cur = meal.catBudgets ? meal.catBudgets[key] : null;
+      inp.value = (cur === null || cur === undefined) ? "" : String(cur);
+      inp.setAttribute("aria-label","תקציב " + CAT_BUDGET_LABELS[key] + " בקק\"ל לארוחה זו");
+      inp.addEventListener("change", function(){
+        var rawObj = {}, q, w, wi, wv;
+        for (q=0;q<CAT_BUDGET_KEYS.length;q++){
+          var qi = catIns[CAT_BUDGET_KEYS[q]];
+          rawObj[CAT_BUDGET_KEYS[q]] = qi.value === "" ? null : Number(qi.value);
+        }
+        meal.catBudgets = normalizeCatBudgets(rawObj);
+        for (w=0;w<CAT_BUDGET_KEYS.length;w++){
+          wi = catIns[CAT_BUDGET_KEYS[w]];
+          wv = meal.catBudgets ? meal.catBudgets[CAT_BUDGET_KEYS[w]] : null;
+          wi.value = (wv === null || wv === undefined) ? "" : String(wv);
+        }
+        syncCatBudgetState();
+        recalc();
+      });
+      catIns[key] = inp;
+      lab.appendChild(inp);
+      catWrap.appendChild(lab);
+    })(CAT_BUDGET_KEYS[ck]);
+  }
+  syncCatBudgetState();
+  card.appendChild(catWrap);
 
   var rowsWrap = el("div","meal-rows");
   for (var i=0;i<meal.rows.length;i++) rowsWrap.appendChild(buildFoodRow(foods, meal, meal.rows[i]));
@@ -7343,7 +7424,10 @@ function renderMealsTrack(){
       var bs = mealBudgetStatus(m.kcal, m.budget);
       var txt = m.name + " · " + m.kcal.toLocaleString("he-IL") + (bs ? ("/" + bs.budget.toLocaleString("he-IL")) : "") + " קק\"ל";
       var chip = el("span","mt-meal" + (bs && bs.over ? " over" : ""), txt);
-      chip.title = m.rows.map(function(r){ return r.free ? (r.name + " (חופשי)") : (r.name + " " + r.grams + " ג'"); }).join(" · ");
+      chip.title = m.rows.map(function(r){
+        var cp = (r.cat && CAT_BUDGET_LABELS[r.cat]) ? (CAT_BUDGET_LABELS[r.cat] + ": ") : "";
+        return r.free ? (cp + r.name + " (חופשי)") : (cp + r.name + " " + r.grams + " ג'");
+      }).join(" · ");
       mealsBox.appendChild(chip);
     }
     row.appendChild(mealsBox);
