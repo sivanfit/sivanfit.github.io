@@ -165,6 +165,20 @@ button{font:inherit; color:inherit}
 }
 .pick-chip:hover{border-color:var(--primary); color:var(--text)}
 .pick-chip[aria-pressed="true"]{background:var(--primary); border-color:var(--primary); color:var(--on-primary)}
+/* רצועת ימי השבוע ב"מה אכלת" (24.8.2026, הערת סיפי #1) — גלולות קטנות מעל התפריט,
+   ראשון עד שבת; יום שעוד לא הגיע כבוי, והיום המסומן כהה כמו .pick-chip */
+.day-strip{display:flex; gap:6px; flex-wrap:wrap}
+.day-chip{
+  appearance:none; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer;
+  padding:7px 10px; border-radius:999px; border:1.5px solid var(--border-strong);
+  background:var(--surface); color:var(--text-muted); flex:1 1 auto; min-width:52px; text-align:center;
+  transition:background .15s, color .15s, border-color .15s;
+}
+.day-chip:hover{border-color:var(--primary); color:var(--text)}
+.day-chip[aria-pressed="true"]{background:var(--primary); border-color:var(--primary); color:var(--on-primary)}
+.day-chip .day-date{display:block; font-size:10.5px; font-weight:600; color:inherit; opacity:.75}
+.day-chip:disabled{opacity:.45; cursor:default}
+.day-chip:disabled:hover{border-color:var(--border-strong); color:var(--text-muted)}
 
 /* ---------- stats ---------- */
 .stat-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
@@ -245,6 +259,12 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .sum-total span{font-size:13px; color:var(--text-muted)}
 .menu-sum{background:var(--surface)}
 .menu-sum .bar{height:8px}
+/* תצוגת יום קודם — קריאה בלבד (24.8.2026): מה שנשמר באותו יום, בלי כפתורי מילוי */
+.day-meal{display:flex; flex-direction:column; gap:3px; padding:10px 0; border-bottom:1px solid var(--border)}
+.day-meal-name{font-weight:800; font-size:14px}
+.day-row{font-size:13px; color:var(--text-muted)}
+.day-meal-sum{font-size:12.5px; font-weight:700}
+.day-grand{font-size:15px; font-weight:800; padding-top:4px}
 
 /* ---------- מילוי עצמי (ארוחה עם תקציב) ---------- */
 .fill{border-top:2px solid var(--border-strong); background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:10px}
@@ -661,11 +681,15 @@ td.n,th.n{text-align:end; white-space:nowrap}
         <span class="eyebrow">תפריט</span>
         <h2 class="card-title">התפריט שלך</h2>
       </div>
+      <!-- רצועת ימי השבוע (24.8.2026, הערת סיפי #1): ראשון-שבת — מה נאכל בכל יום -->
+      <div class="day-strip hidden" id="dayStrip"></div>
       <div class="chip-pick hidden" id="menuPick"></div>
       <p class="note-line hidden" id="menuMeta"></p>
       <div class="alert hidden" id="staleNote"></div>
       <div class="alert hidden" id="catalogFailNote">לא הצלחנו לטעון את רשימת המזונות כרגע — רעננו את הדף כדי למלא את הבחירות שלך</div>
       <div class="stack" id="menuBody"></div>
+      <!-- תצוגת יום קודם, קריאה בלבד (24.8.2026) — מחליפה את האקורדיון כשבוחרים יום שעבר -->
+      <div class="stack hidden" id="dayViewBox"></div>
       <div class="fill-save hidden" id="fillSaveBar">
         <button class="btn" id="btnSaveChoices" type="button">שמירת הבחירות שלי</button>
         <span class="fill-save-note" id="fillSaveNote"></span>
@@ -794,15 +818,8 @@ function clear(node){
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-var MACRO_LABEL = {kcal:"קלוריות", protein:"חלבון", carbs:"פחמימה", fat:"שומן"};
-var MACRO_KEYS = ["kcal","protein","carbs","fat"];
-
-function chipLevelClass(level){
-  if (level === "ok") return "chip-ok";
-  if (level === "warn") return "chip-warn";
-  if (level === "bad") return "chip-bad";
-  return "chip-neutral";
-}
+/* 24.8.2026 (הערת סיפי #2): MACRO_LABEL / MACRO_KEYS / chipLevelClass הוסרו מהפורטל —
+   הם שימשו רק את צ'יפי "מתחת ליעד" האדומים בבר הסיכום, והם ירדו לגמרי */
 
 /* ---------- טאבי הפורטל (21.8) ----------
    ארבעה מסכים כמו באפליקציה: הבית (לקוחה+סיכום) · יעדים · תפריט+מילוי · מעקב.
@@ -913,6 +930,11 @@ var FILL_CHOICES = {};       /* "menuIdx:mealIdx" → מערך {name, grams, kca
    קטלוג/תשובה ובכל בחירת תפריט — בלי הזיכרון הזה כל רינדור היה סוגר את מה שנפתח */
 var MEAL_OPEN = {};
 var SAVED_AT = "";           /* updatedAt של המסמך השמור בענן */
+/* 24.8.2026 (הערת סיפי #1): איזה יום בשבוע מוצג — "" = היום (התצוגה החיה), אחרת ISO של יום שעבר */
+var DAY_SEL = "";
+var DAY_CACHE = {};          /* iso → מסמך-היום המנורמל, או null כשלא מולא. כישלון רשת לא נכנס למטמון */
+/* 24.8.2026 (הערת סיפי #3): היעד של מד "נאכל היום" — יעד הקלוריות, ובהיעדרו סכום התפריט; null = בלי בר */
+var EATEN_GOAL = null;
 
 /* ---------- חשבון אישי (22.8.2026): מצב ---------- */
 var PORTAL_AUTH = null;      /* auth של אפליקציית "portal" — null כשה-SDK לא נטען */
@@ -1511,54 +1533,91 @@ function mealCard(meal, menuIdx, mealIdx){
   return card;
 }
 
-/* בר הסיכום של התפריט (24.8.2026): עולה עכשיו בראש מסך התפריט ולא בסופו — כמו
-   שורת "Today 1,030 / 2,100 kcal" בעיצוב: קודם רואים איפה עומדים, ואז את הארוחות */
+/* מד "נאכל היום" (24.8.2026, הערות סיפי #2+#3): הבר שבראש מסך התפריט כבר לא מציג
+   את סכום התפריט שסיוון בנתה אלא את מה שהלקוחה באמת מילאה — הוא מתחיל מהבחירות
+   המשוחזרות ועולה חי בכל הוספה, לפני השמירה ואחריה. צ'יפי "מתחת ליעד" האדומים ירדו. */
 function menuSummary(menu, targets){
   var box = el("div","card stack menu-sum");
   var totals = objOf(menu.totals) || {};
   var t = objOf(targets) || {};
   var goal = Number(t.kcal);
-  var done = Number(totals.kcal);
-  var hasGoal = isFinite(goal) && goal > 0;
+  var planned = Number(totals.kcal);
+  /* היעד של המד: יעד הקלוריות של הלקוחה, ובהיעדרו סכום התפריט; בלי שניהם — בלי בר */
+  EATEN_GOAL = (isFinite(goal) && goal > 0) ? Math.round(goal)
+             : ((isFinite(planned) && planned > 0) ? Math.round(planned) : null);
 
   var head = el("div","sum-head");
-  head.appendChild(el("span","sum-head-label","סה\"כ התפריט"));
+  head.appendChild(el("span","sum-head-label","נאכל היום"));
   var tot = el("span","sum-total");
-  tot.appendChild(el("b","num", numText(totals.kcal, 0)));
-  tot.appendChild(el("span", null, hasGoal ? (" / " + numText(goal, 0) + " קק\"ל") : " קק\"ל"));
+  var num = el("b","num","0");
+  num.id = "eatenKcalNum";
+  tot.appendChild(num);
+  var goalTxt = el("span", null, "");
+  goalTxt.id = "eatenGoalTxt";
+  tot.appendChild(goalTxt);
   head.appendChild(tot);
   box.appendChild(head);
 
-  if (hasGoal && isFinite(done) && done >= 0){
+  if (EATEN_GOAL !== null){
     var bar = el("div","bar bar-accent");
     var fill = el("div","bar-fill");
-    var pct = Math.round((done / goal) * 100);
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
-    fill.style.width = pct + "%";
+    fill.id = "eatenBarFill";
+    fill.style.width = "0%";
     bar.appendChild(fill);
     box.appendChild(bar);
   }
 
-  box.appendChild(el("p","lede",
-    "חלבון " + numText(totals.protein, 1) + " ג' · פחמימה " + numText(totals.carbs, 1) + " ג' · שומן " + numText(totals.fat, 1) + " ג'"));
+  var macros = el("p","lede","");
+  macros.id = "eatenMacros";
+  box.appendChild(macros);
 
-  var vs = objOf(menu.vs) || {};
-  var chips = el("div","row-flex");
-  for (var i=0; i<MACRO_KEYS.length; i++){
-    var key = MACRO_KEYS[i];
-    var s = objOf(vs[key]);
-    var level = s ? textOf(s.level) : "neutral";
-    var text = (s && textOf(s.text)) ? textOf(s.text) : "אין יעד";
-    if (!s) level = "neutral";
-    var chip = el("span","chip " + chipLevelClass(level));
-    chip.appendChild(el("span","chip-dot"));
-    chip.appendChild(el("span", null, MACRO_LABEL[key] + ": " + text));
-    chip.setAttribute("data-vs-key", key);
-    chips.appendChild(chip);
-  }
-  box.appendChild(chips);
+  refreshEatenSummary();
   return box;
+}
+
+/* מה שהלקוחה מילאה בתפריט המוצג — הבסיס למד "נאכל היום" (24.8.2026).
+   בדיוק אותן שורות שנשמרות ב-saveChoices, כדי שהמד והשמירה לא יסתרו זה את זה */
+function eatenTotals(){
+  var out = {kcal:0, protein:0, carbs:0, fat:0};
+  var menu = PORTAL_MENUS[ACTIVE_MENU_IDX];
+  var meals = arrOf(menu && menu.meals);
+  for (var i=0; i<meals.length; i++){
+    var rows = FILL_CHOICES[fillKey(ACTIVE_MENU_IDX, i)] || [];
+    for (var j=0; j<rows.length; j++){
+      var r = rows[j];
+      if (!r) continue;
+      out.kcal += rowKcal(r);
+      out.protein += rowMacro(r, "protein100");
+      out.carbs += rowMacro(r, "carbs100");
+      out.fat += rowMacro(r, "fat100");
+    }
+  }
+  out.protein = Math.round(out.protein * 10) / 10;
+  out.carbs = Math.round(out.carbs * 10) / 10;
+  out.fat = Math.round(out.fat * 10) / 10;
+  return out;
+}
+
+/* עדכון המד עצמו — לא עושה כלום כשהבר לא על המסך (מסך בלי תפריט, או רינדור מחדש) */
+function refreshEatenSummary(){
+  var num = $("eatenKcalNum");
+  if (!num) return;
+  var e = eatenTotals();
+  num.textContent = n(e.kcal);
+  var goalTxt = $("eatenGoalTxt");
+  if (goalTxt) goalTxt.textContent = EATEN_GOAL ? (" / " + n(EATEN_GOAL) + " קק\"ל") : " קק\"ל";
+  var fill = $("eatenBarFill");
+  if (fill){
+    var pct = EATEN_GOAL ? Math.round((e.kcal / EATEN_GOAL) * 100) : 0;
+    if (!isFinite(pct) || pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    fill.style.width = pct + "%";
+  }
+  var macros = $("eatenMacros");
+  if (macros){
+    macros.textContent = "חלבון " + numText(e.protein, 1) + " ג' · פחמימה " + numText(e.carbs, 1) +
+                         " ג' · שומן " + numText(e.fat, 1) + " ג'";
+  }
 }
 
 function showMenu(idx){
@@ -1612,7 +1671,11 @@ function renderMenus(menus, targets){
   PORTAL_MENUS = [];
 
   var list = sortedShareMenus(menus);
-  if (!list.length){ show(card, false); show(pick, false); show($("menuMeta"), false); return; }
+  if (!list.length){
+    show(card, false); show(pick, false); show($("menuMeta"), false);
+    renderDayStrip();   /* אין תפריטים — הרצועה יורדת (24.8.2026) */
+    return;
+  }
 
   PORTAL_MENUS = list;
   show(card, true);
@@ -1631,6 +1694,7 @@ function renderMenus(menus, targets){
     show(pick, false);
   }
   showMenu(0);
+  renderDayStrip();
 }
 
 function onPickMenu(ev){
@@ -1638,6 +1702,188 @@ function onPickMenu(ev){
   var idx = Number(node.getAttribute("data-menu-idx"));
   if (!isFinite(idx)) idx = 0;
   showMenu(idx);
+}
+
+/* ============================================================
+   שבוע ראשון-שבת ב"מה אכלת" (24.8.2026, הערת סיפי #1)
+   רצועת שבעה ימים מעל התפריט: היום הוא התצוגה החיה (מילוי + שמירה),
+   יום שעבר נפתח כתצוגה קריאה-בלבד ממסמך responses/{token}/days/{iso},
+   ויום שעוד לא הגיע כבוי. ============================================ */
+var DAY_NAMES = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+
+/* שבעת ימי השבוע הנוכחי, ראשון ראשון — לפי השעון המקומי, בלי UTC (כמו localDayISO) */
+function weekDays(){
+  var now = new Date();
+  var start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+  var out = [];
+  for (var i=0; i<7; i++){
+    var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    var m = d.getMonth() + 1, day = d.getDate();
+    out.push({iso: d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day,
+              label: DAY_NAMES[i], date: day + "." + m});
+  }
+  return out;
+}
+
+/* התווית והתאריך של יום מסוים; יום מחוץ לשבוע הנוכחי — תאריך בלבד */
+function dayInfo(iso){
+  var days = weekDays();
+  for (var i=0; i<days.length; i++){
+    if (days[i].iso === iso) return days[i];
+  }
+  var s = textOf(iso);
+  return {iso:s, label:"",
+          date: s.length === 10 ? (Number(s.slice(8,10)) + "." + Number(s.slice(5,7))) : s};
+}
+
+function renderDayStrip(){
+  var strip = $("dayStrip");
+  if (!strip) return;
+  clear(strip);
+  if (!PORTAL_MENUS.length){ show(strip, false); return; }
+  var today = localDayISO();
+  var sel = DAY_SEL || today;
+  var days = weekDays();
+  for (var i=0; i<days.length; i++){
+    (function(d){
+      var btn = el("button","day-chip");
+      btn.type = "button";
+      btn.setAttribute("data-day", d.iso);
+      btn.setAttribute("aria-pressed", d.iso === sel ? "true" : "false");
+      btn.appendChild(el("span","day-name", d.iso === today ? "היום" : d.label));
+      btn.appendChild(el("span","day-date", d.date));
+      if (d.iso > today){
+        /* יום שעוד לא הגיע — אין מה להראות בו */
+        btn.classList.add("day-off");
+        btn.disabled = true;
+        btn.setAttribute("aria-label", d.label + " " + d.date + " — עוד לא היה");
+      } else {
+        btn.addEventListener("click", function(){ selectDay(d.iso); });
+      }
+      strip.appendChild(btn);
+    })(days[i]);
+  }
+  show(strip, true);
+}
+
+/* בחירת יום: היום = חזרה לתצוגה החיה · יום שעבר = תצוגה קריאה בלבד במקום האקורדיון */
+function selectDay(iso){
+  var today = localDayISO();
+  DAY_SEL = (textOf(iso) === today) ? "" : textOf(iso);
+  renderDayStrip();
+  var box = $("dayViewBox");
+  if (DAY_SEL === ""){
+    show($("menuBody"), true);
+    show($("menuPick"), PORTAL_MENUS.length > 1);
+    clear(box);
+    show(box, false);
+    refreshSaveBar();
+    updateStaleNote();
+    return;
+  }
+  show($("menuBody"), false);
+  show($("fillSaveBar"), false);
+  show($("menuPick"), false);
+  show($("staleNote"), false);
+  show(box, true);
+  showDayView(DAY_SEL);
+}
+
+/* מסמך-היום: מהמטמון אם כבר נקרא, אחרת קריאה אחת מהענן. כישלון (חוקים שעוד לא
+   פורסמו / אין רשת) לא נכנס למטמון — כדי שלחיצה נוספת תנסה שוב */
+function showDayView(iso){
+  var box = $("dayViewBox");
+  if (!box) return;
+  if (Object.prototype.hasOwnProperty.call(DAY_CACHE, iso)){
+    renderDayView(iso, DAY_CACHE[iso]);
+    return;
+  }
+  clear(box);
+  box.appendChild(el("p","lede","טוען..."));
+  if (!PORTAL_DB || !PORTAL_TOKEN){
+    clear(box);
+    box.appendChild(el("p","lede","אי אפשר להציג כרגע את הימים הקודמים — נסי שוב מאוחר יותר"));
+    return;
+  }
+  var tok = PORTAL_TOKEN;
+  PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("days").doc(iso).get().then(function(snap){
+    if (PORTAL_TOKEN !== tok || DAY_SEL !== iso) return;   /* התחלפה תוכנית או נבחר יום אחר */
+    var day = (snap && snap.exists) ? normalizeDayDoc(snap.data()) : null;
+    DAY_CACHE[iso] = day;
+    renderDayView(iso, day);
+  }, function(){
+    if (PORTAL_TOKEN !== tok || DAY_SEL !== iso) return;
+    clear(box);
+    box.appendChild(el("p","lede","אי אפשר להציג כרגע את הימים הקודמים — נסי שוב מאוחר יותר"));
+  });
+}
+
+/* נרמול מסמך-היום לצורה שהתצוגה מציירת — ארוחות בלי שורות יורדות */
+function normalizeDayDoc(data){
+  var d = objOf(data);
+  if (!d) return null;
+  var out = [], meals = arrOf(d.meals);
+  for (var i=0; i<meals.length; i++){
+    var m = objOf(meals[i]);
+    if (!m) continue;
+    var rows = [], raw = arrOf(m.rows);
+    for (var j=0; j<raw.length; j++){
+      var r = objOf(raw[j]);
+      if (!r || textOf(r.name) === "") continue;
+      var k = Number(r.kcal);
+      if (!isFinite(k) || k < 0) k = 0;
+      var g = Number(r.grams);
+      if (!isFinite(g) || g < 0) g = 0;
+      rows.push({name:textOf(r.name), grams:g, kcal:Math.round(k),
+                 free:r.free === true, cat:textOf(r.cat)});
+    }
+    if (!rows.length) continue;
+    out.push({name:textOf(m.name) || "ארוחה", menu:textOf(m.menu),
+              budget:mealBudgetOf(m), rows:rows});
+  }
+  return {meals:out};
+}
+
+function renderDayView(iso, day){
+  var box = $("dayViewBox");
+  if (!box) return;
+  clear(box);
+  var info = dayInfo(iso);
+  if (!day || !day.meals.length){
+    box.appendChild(el("p","lede","עדיין לא מולא ביום הזה"));
+    return;
+  }
+  var head = el("div","sum-head");
+  head.appendChild(el("span","sum-head-label",
+    "מה נאכל ביום " + (info.label ? info.label + " " : "") + info.date));
+  box.appendChild(head);
+
+  var multi = PORTAL_MENUS.length > 1;
+  var grand = 0;
+  for (var i=0; i<day.meals.length; i++){
+    var m = day.meals[i];
+    var mealBox = el("div","day-meal");
+    var title = m.name;
+    if (multi && m.menu !== "") title += " (" + m.menu + ")";
+    mealBox.appendChild(el("p","day-meal-name", title));
+    var sum = 0;
+    for (var j=0; j<m.rows.length; j++){
+      var r = m.rows[j];
+      sum += r.kcal;
+      var parts = [];
+      if (r.cat !== "" && CAT_LABELS[r.cat]) parts.push(CAT_LABELS[r.cat]);
+      parts.push(r.name);
+      if (r.free) parts.push("חופשי");
+      else { parts.push(numText(r.grams, 0) + " ג'"); parts.push(numText(r.kcal, 0) + " קק\"ל"); }
+      mealBox.appendChild(el("p","day-row", parts.join(" · ")));
+    }
+    grand += sum;
+    var sumText = "סה\"כ: " + n(sum) + " קק\"ל";
+    if (m.budget !== null) sumText += " מתוך " + n(m.budget);
+    mealBox.appendChild(el("p","day-meal-sum", sumText));
+    box.appendChild(mealBox);
+  }
+  box.appendChild(el("p","day-grand", "סה\"כ ביום הזה: " + n(grand) + " קק\"ל"));
 }
 
 /* עמודות טבלת המעקב כפי שסיוון הגדירה אותן ({id,label}, רק עם id לא ריק).
@@ -2301,25 +2547,31 @@ function refreshSaveBar(){
   if (!bar) return;
   var menu = PORTAL_MENUS[ACTIVE_MENU_IDX];
   var active = CATALOG_READY && menu && menuHasMeals(menu);
-  show(bar, active);
-  if (!active) return;
-  var over = anyOverBudget();
-  var btn = $("btnSaveChoices");
-  btn.disabled = SAVING;   /* QA 20.8.2026: חריגה לא חוסמת — רק שמירה שכבר רצה */
-  var note = $("fillSaveNote");
-  if (SAVING){
-    note.textContent = "שומר...";
-    note.className = "fill-save-note";
-  } else if (over){
-    note.textContent = "יש חריגה מהתקציב — אפשר לשמור, סיוון תראה את החריגה";
-    note.className = "fill-save-note bad";
-  } else if (SAVED_AT){
-    note.textContent = "נשמר לאחרונה: " + isoDateText(localDayOf(SAVED_AT) || SAVED_AT);
-    note.className = "fill-save-note";
-  } else {
-    note.textContent = "הבחירות יישלחו לסיוון";
-    note.className = "fill-save-note";
+  /* 24.8.2026: בתצוגת יום קודם (DAY_SEL) הבר יורד — שם קוראים בלבד, לא ממלאים */
+  var live = active && DAY_SEL === "";
+  show(bar, live);
+  if (live){
+    var over = anyOverBudget();
+    var btn = $("btnSaveChoices");
+    btn.disabled = SAVING;   /* QA 20.8.2026: חריגה לא חוסמת — רק שמירה שכבר רצה */
+    var note = $("fillSaveNote");
+    if (SAVING){
+      note.textContent = "שומר...";
+      note.className = "fill-save-note";
+    } else if (over){
+      note.textContent = "יש חריגה מהתקציב — אפשר לשמור, סיוון תראה את החריגה";
+      note.className = "fill-save-note bad";
+    } else if (SAVED_AT){
+      note.textContent = "נשמר לאחרונה: " + isoDateText(localDayOf(SAVED_AT) || SAVED_AT);
+      note.className = "fill-save-note";
+    } else {
+      note.textContent = "הבחירות יישלחו לסיוון";
+      note.className = "fill-save-note";
+    }
   }
+  /* 24.8.2026 (הערת סיפי #3): כל שינוי במילוי עובר דרך כאן — הוספה, גריעה, שינוי גרמים,
+     החלפת תפריט, שחזור מהענן ושמירה. לכן מד "נאכל היום" מתעדכן בדיוק כאן */
+  refreshEatenSummary();
 }
 
 /* התאריך המקומי של חותמת ISO (שנשמרת ב-UTC) — כדי ששמירה ב-01:00 בלילה בישראל
@@ -2393,6 +2645,8 @@ function saveChoices(){
        באותו טאב) — החותמת וההודעה שייכות לשיתוף שנשמר, ואסור להטביע אותן על החדש */
     if (PORTAL_TOKEN !== tok){ refreshSaveBar(); return; }
     SAVED_AT = when;
+    /* 24.8.2026: מסמך היום נכתב עכשיו מחדש — המטמון של הרצועה חייב לשכוח אותו */
+    delete DAY_CACHE[localDayISO()];
     refreshSaveBar();
     updateStaleNote();
     /* גם בהצלחה — אם עדיין יש חריגה, אומרים זאת בהודעת ההצלחה (ביקורת 20.8) */
@@ -2616,6 +2870,7 @@ function loadShare(token, source){
      (זיכרון-מכשיר→חשבון מקושר, קישור אחר באותו טאב) — בלי האיפוס הבחירות, שעת השמירה,
      הקטלוג והטאב הפעיל של הלקוחה הקודמת נשארים על המסך ואף נשמרים לתוכנית החדשה */
   SHARE = null; FILL_CHOICES = {}; MEAL_OPEN = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
+  DAY_SEL = ""; DAY_CACHE = {}; EATEN_GOAL = null;   /* 24.8.2026: גם רצועת הימים והמד */
   PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
   MEAS_SAVING = false;
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
