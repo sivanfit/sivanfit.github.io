@@ -311,6 +311,12 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .meas-pending-row b{color:var(--text)}
 .meas-pending-note{font-size:12px; color:var(--text-soft)}
 
+/* ---------- שאלון היכרות שהלקוחה ממלאת (24.8.2026) ---------- */
+.intake-field{display:flex; flex-direction:column; gap:4px; font-size:12.5px; font-weight:700; color:var(--text-soft)}
+/* 16px — בלי זום אוטומטי בספארי באייפון */
+.intake-field input,.intake-field textarea{width:100%; font:inherit; font-size:16px; padding:9px 11px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text)}
+.intake-field textarea{resize:vertical; min-height:44px}
+
 /* ---------- התקנה כאפליקציה (PWA, שלב ב' 23.8.2026) ---------- */
 .install-how{border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px}
 .install-how summary{cursor:pointer; font-weight:700; font-size:13.5px}
@@ -524,6 +530,21 @@ td.n,th.n{text-align:end; white-space:nowrap}
       <!-- 23.8.2026 (בקשת סיפי): כשהחשבון כבר מחובר לתוכנית הזו — שורה שקטה כאן
            במקום כרטיס חשבון שלם; #acctCard נשאר למצבים שבהם באמת צריך לפעול -->
       <p class="note-line hidden" id="acctLine"><span id="acctLineText"></span> <button class="btn btn-quiet btn-xs" id="btnAcctLineSignOut" type="button">יציאה מהחשבון</button></p>
+    </section>
+
+    <!-- שאלון היכרות (24.8.2026, בקשת סיוון): הלקוחה ממלאת אותו בעצמה בבית של הפורטל.
+         מוצג רק כשסיוון פתחה את המילוי (share.intake.requested) — ונעלם ברגע שהיא מייבאת -->
+    <section class="card stack hidden" id="intakeCard" data-view="home">
+      <div>
+        <span class="eyebrow">היכרות</span>
+        <h2 class="card-title">שאלון היכרות</h2>
+      </div>
+      <p class="lede">כמה שאלות קצרות — סיוון תבנה לך תוכנית אישית לפי התשובות. אפשר לדלג על מה שלא רלוונטי.</p>
+      <div class="stack-sm" id="intakeFields"></div>
+      <div class="fill-save">
+        <button class="btn" id="btnSendIntake" type="button">שליחת השאלון לסיוון</button>
+        <span class="fill-save-note" id="intakeSendNote"></span>
+      </div>
     </section>
 
     <!-- חשבון אישי (22.8.2026): חיבור חד-פעמי של חשבון Google / מייל לתוכנית — ואז כניסה בלי הקישור.
@@ -2048,6 +2069,131 @@ function loadPending(cols){
   } catch (e){ show(wrap, false); }
 }
 
+/* ---------- שאלון היכרות שהלקוחה ממלאת (24.8.2026, בקשת סיוון) ----------
+   סיוון פותחת את המילוי מהדשבורד, והשאלות עצמן נוסעות במסמך השיתוף
+   (share.intake.questions — בלי דגלי הסינון הפנימיים שלה). התשובות נכתבות ל-
+   responses/{token}/intake/latest וממתינות שם עד שהיא מייבאת אותן לכרטיס הלקוחה */
+function intakeNote(text, cls){
+  var node = $("intakeSendNote");
+  if (!node) return;
+  node.textContent = text || "";
+  node.className = "fill-save-note" + (cls ? " " + cls : "");
+}
+
+function renderIntakeCard(intake){
+  var card = $("intakeCard");
+  var wrap = $("intakeFields");
+  if (!card || !wrap) return;
+  clear(wrap);
+  intakeNote("", "");
+  var d = objOf(intake);
+  if (!d || d.requested !== true){ show(card, false); return; }
+  var qs = arrOf(d.questions), built = 0;
+  for (var i=0; i<qs.length && built < 40; i++){   /* 40 = תקרת המפתחות שחוקי Firestore אוכפים */
+    var q = objOf(qs[i]);
+    if (!q) continue;
+    var qid = textOf(q.id).trim();
+    if (qid === "") continue;
+    var unit = textOf(q.unit).trim();
+    var kind = textOf(q.kind);
+    var field = el("label","intake-field");
+    field.appendChild(el("span", null, (textOf(q.label).trim() || qid) + (unit ? " (" + unit + ")" : "")));
+    var input;
+    if (kind === "longtext"){
+      input = document.createElement("textarea");
+      input.setAttribute("rows","2");
+    } else {
+      input = document.createElement("input");
+      input.type = (kind === "number") ? "number" : "text";
+      if (kind === "number") input.setAttribute("inputmode","decimal");
+    }
+    input.setAttribute("maxlength","500");
+    input.setAttribute("data-qid", qid);
+    field.appendChild(input);
+    wrap.appendChild(field);
+    built++;
+  }
+  if (!built){ show(card, false); return; }
+  show(card, true);
+  loadIntakeAnswers();
+}
+
+/* תשובות שכבר נשלחו — מילוי מראש, כדי שאפשר יהיה לתקן ולשלוח שוב.
+   כישלון (חוק שעוד לא פורסם / אופליין) נבלע בשקט: טופס ריק, בלי לצבוע את העמוד כשבור */
+function loadIntakeAnswers(){
+  if (!PORTAL_DB || !PORTAL_TOKEN) return;
+  var tok = PORTAL_TOKEN;
+  try {
+    PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("intake").doc("latest").get()
+      .then(function(snap){
+      if (PORTAL_TOKEN !== tok) return;
+      var data = (snap && snap.exists) ? objOf(snap.data ? snap.data() : null) : null;
+      var answers = data ? objOf(data.answers) : null;
+      if (!answers) return;
+      var wrap = $("intakeFields");
+      var fields = wrap ? wrap.querySelectorAll("[data-qid]") : [];
+      var filled = 0;
+      for (var i=0; i<fields.length; i++){
+        var qid = textOf(fields[i].getAttribute("data-qid"));
+        if (!qid || !Object.prototype.hasOwnProperty.call(answers, qid)) continue;
+        var v = answers[qid];
+        if (typeof v !== "string" && typeof v !== "number") continue;
+        fields[i].value = textOf(v);
+        filled++;
+      }
+      if (filled) intakeNote("נשלח בעבר ✓ — אפשר לעדכן ולשלוח שוב", "ok");
+    }, function(){});
+  } catch (e){}
+}
+
+function sendIntake(){
+  if (!PORTAL_DB || !PORTAL_TOKEN || INTAKE_SAVING) return;
+  var tok = PORTAL_TOKEN;   /* הטוקן שאליו השליחה הזו שייכת — ייתכן שיתחלף תוך כדי */
+  var wrap = $("intakeFields");
+  var fields = wrap ? wrap.querySelectorAll("[data-qid]") : [];
+  var answers = {}, count = 0;
+  for (var i=0; i<fields.length; i++){
+    if (count >= 40) break;
+    var qid = textOf(fields[i].getAttribute("data-qid"));
+    if (!qid) continue;
+    var v = textOf(fields[i].value).trim();
+    if (v === "") continue;   /* שאלה שדילגו עליה פשוט לא נשלחת */
+    answers[qid] = v.slice(0, 500);
+    count++;
+  }
+  if (!count){ intakeNote("מלאי לפחות תשובה אחת", "bad"); return; }
+
+  var payload = {v:1, updatedAt:new Date().toISOString(), answers:answers};
+  INTAKE_SAVING = true;
+  var btn = $("btnSendIntake");
+  if (btn) btn.disabled = true;
+  intakeNote("שולחים...", "");
+  PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("intake").doc("latest").set(payload).then(function(){
+    if (PORTAL_TOKEN !== tok) return;   /* בינתיים הוצגה תוכנית אחרת */
+    INTAKE_SAVING = false;
+    if (btn) btn.disabled = false;
+    intakeNote("נשלח ✓ — סיוון תעבור על התשובות", "ok");
+  }, function(){
+    if (PORTAL_TOKEN !== tok) return;
+    INTAKE_SAVING = false;
+    if (btn) btn.disabled = false;
+    intakeNote("השליחה לא הצליחה — בדקי חיבור ונסי שוב", "bad");
+  });
+}
+
+/* איפוס מלא לפני טעינת שיתוף אחר — כמו resetMeasureCard, כדי ששום שדה, הודעה
+   או כפתור חסום של הלקוחה הקודמת לא יישאר על המסך */
+function resetIntakeCard(){
+  INTAKE_SAVING = false;
+  var wrap = $("intakeFields");
+  if (wrap) clear(wrap);
+  intakeNote("", "");
+  var btn = $("btnSendIntake");
+  if (btn) btn.disabled = false;
+  var card = $("intakeCard");
+  if (card) show(card, false);
+}
+
 /* סינון הנקודות לתצוגת הלקוחה (23.8.2026, בקשת סיפי): "הרגלים" ו"חשקים למתוק"
    יורדות לגמרי, ומתוך "תהליך" יורדים תתי-הפריטים "מחויבות" ו"משך" — מידע פנימי
    של סיוון שאין לו מה לעשות במסך של הלקוחה. "" = הנקודה לא מוצגת */
@@ -2148,6 +2294,7 @@ var MEAS_SAVING = false;   /* אותו דבר לשליחת המדידות (23.8.
 var MEAS_COLS = [];        /* עמודות המדידה של השיתוף המוצג — נקבעות ב-renderMeasureCard */
 var MEAS_PENDING_DAYS = {};   /* {יום: true} — הימים שכבר ממתינים לאישור, מ-loadPending (23.8.2026) */
 var MEAS_CONFIRM_DAY = "";    /* היום שעליו כבר הוצגה אזהרת דריסה — לחיצה שנייה מחליפה */
+var INTAKE_SAVING = false;    /* אותו דבר לשליחת שאלון ההיכרות (24.8.2026) */
 
 function refreshSaveBar(){
   var bar = $("fillSaveBar");
@@ -2270,6 +2417,7 @@ function localDayISO(){
 }
 $("btnSaveChoices").addEventListener("click", saveChoices);
 $("btnSendMeasure").addEventListener("click", sendMeasure);
+$("btnSendIntake").addEventListener("click", sendIntake);   /* שאלון ההיכרות (24.8.2026) */
 /* 23.8.2026: החלפת תאריך מבטלת אזהרת דריסה שהוצגה על התאריך הקודם */
 var MEAS_DATE_EL = $("measDateIn");
 if (MEAS_DATE_EL) MEAS_DATE_EL.addEventListener("change", function(){ MEAS_CONFIRM_DAY = ""; });
@@ -2367,6 +2515,7 @@ function renderShare(data){
   renderTracking(d.tracking);
   renderProgress(d.tracking);
   renderMeasureCard(d.tracking);
+  renderIntakeCard(d.intake);
   renderSummary(d.summary);
   updateStaleNote();
   /* קטלוג שנכשל בטעינה כשיש ארוחות — אומרים ללקוחה במקום להעלים את אזור המילוי */
@@ -2470,6 +2619,7 @@ function loadShare(token, source){
   PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
   MEAS_SAVING = false;
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
+  resetIntakeCard();    /* 24.8.2026: וגם כרטיס שאלון ההיכרות */
   show($("installCard"), false);   /* כרטיס ההתקנה תלוי ב-SHARE — חוזר ב-renderShare */
   PORTAL_TOKEN = token;
   TOKEN_SOURCE = source || "hash";
@@ -2625,34 +2775,23 @@ function refreshAcctCard(){
     show(card, false);
     return;
   }
+  /* בקשת סיפי 24.8.2026 — מי שנכנסה מקישור/אפליקציה לא צריכה את הצעת החיבור:
+     כרטיס "רוצה להיכנס בלי הקישור?" יורד מהבית לגמרי כשאין חשבון מחובר.
+     המצבים של משתמשת מחוברת נשארים כפי שהם (למשל כניסת קישור-מייל בלי כוונת חיבור) */
+  if (user === null){ show(card, false); show(line, false); return; }
   show(line, false);
-  /* PWA (שלב ב', 23.8.2026): בתוך אפליקציית מסך-הבית באייפון אי אפשר לחבר חשבון —
-     חלון ה-Google הקופץ וקישור-המייל נשברים שם (האחסון מבודד מספארי, ומייל נפתח בדפדפן אחר).
-     במקום כפתורים שלא יעבדו מסבירים לחבר פעם אחת מספארי; המצבים המחוברים לא משתנים */
-  var lockedIOS = user === null && isStandalone() && isIOS();
   show($("acctConnect"), true);
   show($("acctLinked"), false);
-  show($("btnAcctSignOut"), user !== null);
-  show($("acctEmailRow"), user === null && !lockedIOS);
-  show($("btnConnectGoogle"), !lockedIOS);
-  if (user !== null){
-    $("acctTitle").textContent = "לחבר את החשבון לתוכנית הזו?";
-    $("acctLede").textContent = (LINKED_TOKEN && LINKED_TOKEN !== PORTAL_TOKEN)
-      ? "החשבון " + emailOf(user) + " מחובר לתוכנית אחרת — לחבר אותו לתוכנית הזו במקום?"
-      : "מחוברת כ-" + emailOf(user) + " — לחיצה אחת מחברת את החשבון לתוכנית הזו, ומהפעם הבאה נכנסים בלי הקישור.";
-    /* 23.8.2026: התווית מתחילה תמיד ב-"חיבור", כי ההוראות (בפורטל ובדשבורד) מצטטות
-       כפתור בשם הזה; המייל מופיע ב-lede ולא על הכפתור (כתובות ארוכות מתחו את הגלולה) */
-    $("btnConnectGoogle").textContent = "חיבור החשבון לתוכנית הזו";
-  } else if (lockedIOS){
-    $("acctTitle").textContent = "רוצה להיכנס בלי הקישור?";
-    $("acctLede").textContent = "כדי לחבר חשבון פתחי את הקישור האישי ב-Safari (לא מתוך האפליקציה) ולחצי שם \"חיבור\". באפליקציה עצמה נכנסים ישר לתוכנית.";
-  } else {
-    $("acctTitle").textContent = "רוצה להיכנס בלי הקישור?";
-    $("acctLede").textContent = (TOKEN_SOURCE === "device")
-      ? "נכנסת מהזיכרון של המכשיר הזה. חיבור חד-פעמי של חשבון — ואפשר להיכנס גם מכל מכשיר אחר."
-      : "חיבור חד-פעמי — ואחר כך נכנסים לתוכנית מכל מכשיר, בלי לחפש את הקישור.";
-    $("btnConnectGoogle").textContent = "חיבור עם Google";
-  }
+  show($("btnAcctSignOut"), true);
+  show($("acctEmailRow"), false);
+  show($("btnConnectGoogle"), true);
+  $("acctTitle").textContent = "לחבר את החשבון לתוכנית הזו?";
+  $("acctLede").textContent = (LINKED_TOKEN && LINKED_TOKEN !== PORTAL_TOKEN)
+    ? "החשבון " + emailOf(user) + " מחובר לתוכנית אחרת — לחבר אותו לתוכנית הזו במקום?"
+    : "מחוברת כ-" + emailOf(user) + " — לחיצה אחת מחברת את החשבון לתוכנית הזו, ומהפעם הבאה נכנסים בלי הקישור.";
+  /* 23.8.2026: התווית מתחילה תמיד ב-"חיבור", כי ההוראות (בפורטל ובדשבורד) מצטטות
+     כפתור בשם הזה; המייל מופיע ב-lede ולא על הכפתור (כתובות ארוכות מתחו את הגלולה) */
+  $("btnConnectGoogle").textContent = "חיבור החשבון לתוכנית הזו";
   show(card, true);
 }
 

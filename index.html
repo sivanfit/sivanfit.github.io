@@ -744,6 +744,13 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
     <details class="card card-fold hidden" id="clientIntakeCard">
       <summary><h2 class="card-title">שאלון היכרות</h2></summary>
       <div class="stack card-fold-body">
+        <!-- 24.8.2026 (בקשת סיוון): מתג "שהלקוחה תמלא" — פותח/סוגר את כרטיס השאלון בפורטל שלה -->
+        <div class="row-flex">
+          <span class="chip chip-neutral hidden" id="intakeReqChip"></span>
+          <button class="btn btn-ghost btn-sm" id="btnIntakeRequest" type="button"></button>
+        </div>
+        <!-- תשובות שהלקוחה שלחה מהפורטל וממתינות לייבוא (24.8.2026) -->
+        <div class="stack-sm hidden" id="intakeInboxBox"></div>
         <p class="note-line">התשובות נשמרות אוטומטית</p>
         <div class="intake-grid" id="intakeWrap"></div>
       </div>
@@ -2248,6 +2255,31 @@ var INTAKE_QUESTIONS = [
   {id:"q20", label:"לכמה זמן תרצה/י את התהליך?", kind:"text"}
 ];
 
+/* ===== שאלות השאלון למסמך השיתוף (24.8.2026) =====
+   מ-24.8.2026 הלקוחה ממלאת את השאלון בעצמה בפורטל, ולכן מסמך השיתוף נושא את השאלות.
+   יוצאים החוצה רק id/label/kind/unit — redFlag ו-mapsTo הם מידע פנימי של סיוון
+   (איזו שאלה היא שאלת סינון, ולאן היא ממופה במחשבון) ואסור שידלוף למסמך ציבורי.
+   kind שאינו number/longtext → "text", כדי שהפורטל תמיד ידע לבנות שדה. */
+function intakeShareKind(kind){
+  if (kind === "number") return "number";
+  if (kind === "longtext") return "longtext";
+  return "text";
+}
+
+function intakeShareQuestions(){
+  var out = [];
+  for (var i=0;i<INTAKE_QUESTIONS.length;i++){
+    var q = INTAKE_QUESTIONS[i];
+    out.push({
+      id: q.id,
+      label: q.label,
+      kind: intakeShareKind(q.kind),
+      unit: (typeof q.unit === "string") ? q.unit : ""
+    });
+  }
+  return out;
+}
+
 /* ===== פרסרים סלחניים לתשובות בטקסט חופשי ===== */
 
 /* המספר הראשון שמופיע בטקסט: "64 ק"ג" → 64 · "1.70" → 1.7 · "בערך 3-4" → 3 · אין ספרות → null.
@@ -2931,6 +2963,9 @@ function normalizeClient(raw){
     id: raw.id,
     name: (typeof raw.name === "string" && raw.name !== "") ? raw.name : "לקוח ללא שם",
     sex: (raw.sex === "female" || raw.sex === "male") ? raw.sex : "",
+    /* 24.8.2026: השאלון פתוח למילוי אצל הלקוחה בפורטל. חסר/לא-true → false,
+       כדי שלקוחות ותיקים לא יקבלו פתאום שאלון פתוח בקישור שלהם */
+    intakeRequested: raw.intakeRequested === true,
     subscription: normalizeSubscription(raw.subscription),
     intake: normalizeIntake(raw.intake),
     summary: normalizeSummary(raw.summary),
@@ -3450,6 +3485,7 @@ function stopResponseWatch(){
   responseTokenWatched = "";
   clientResponseCache = null;
   stopMeasurementsWatch();
+  stopIntakeWatch();   /* 24.8.2026: גם מאזין שאלון ההיכרות יורד יחד עם הטוקן */
 }
 
 /* ---------- מדידות ממתינות (responses/{token}/measurements, 23.8.2026 — תוספת B) ----------
@@ -3497,6 +3533,58 @@ function watchMeasurements(token){
     }, function(){
       measureCache = [];
       renderMeasureInbox();
+    });
+}
+
+/* ---------- שאלון היכרות שהלקוחה מילאה (responses/{token}/intake/latest, 24.8.2026) ----------
+   מ-24.8.2026 הלקוחה ממלאת את השאלון בעצמה בפורטל; המסמך ממתין כאן עד שסיוון
+   מייבאת אותו לתשובות שלה (או מוחקת). intakeCloudCache = {answers, updatedAt, ref} או null */
+var intakeUnsub = null, intakeTokenWatched = "", intakeCloudCache = null;
+
+function stopIntakeWatch(){
+  if (intakeUnsub){ try { intakeUnsub(); } catch(e){} }
+  intakeUnsub = null;
+  intakeTokenWatched = "";
+  intakeCloudCache = null;
+  renderIntakeInbox();   /* התיבה נסגרת מיד ולא נשארת עם תשובות של לקוחה קודמת */
+}
+
+/* רק שאלות מוכרות עם תשובה לא-ריקה (המסמך מגיע מהלקוחה — לא סומכים על הצורה שלו) */
+function intakeDocAnswers(raw){
+  var src = (raw && typeof raw === "object" && raw.answers && typeof raw.answers === "object") ? raw.answers : null;
+  if (!src) return null;
+  var clean = normalizeIntake(src), keys = Object.keys(clean), out = {}, any = false;
+  for (var i=0;i<keys.length;i++){
+    var v = clean[keys[i]].replace(/^\s+|\s+$/g, "");
+    if (v === "") continue;
+    out[keys[i]] = v.slice(0, 500);
+    any = true;
+  }
+  return any ? out : null;
+}
+
+/* מאזין חי באותו דפוס כמו watchMeasurements. שגיאה נבלעת בשקט בכוונה: עד שחוק
+   ה-intake יודבק בקונסולה Firestore מחזיר permission-denied, ואסור שזה ינתק את
+   סיוון מהענן (אותו תקדים כמו מאזין links) */
+function watchIntakeDoc(token){
+  var t = (typeof token === "string") ? token : "";
+  if (t === intakeTokenWatched){ renderIntakeInbox(); return; }
+  if (intakeUnsub){ try { intakeUnsub(); } catch(e){} intakeUnsub = null; }
+  intakeTokenWatched = t;
+  intakeCloudCache = null;
+  renderIntakeInbox();
+  if (t === "" || cloudMode !== "on" || !fbDb) return;
+  intakeUnsub = fbDb.collection("responses").doc(t).collection("intake").doc("latest")
+    .onSnapshot(function(snap){
+      var data = (snap && snap.exists && snap.data) ? snap.data() : null;
+      var answers = data ? intakeDocAnswers(data) : null;
+      intakeCloudCache = answers
+        ? {answers:answers, updatedAt:(data && typeof data.updatedAt === "string") ? data.updatedAt : "", ref:snap.ref}
+        : null;
+      renderIntakeInbox();
+    }, function(){
+      intakeCloudCache = null;
+      renderIntakeInbox();
     });
 }
 
@@ -3973,7 +4061,8 @@ function purgeResponses(token){
      אוסף חסום) הייתה מפילה את כל ה-Promise.all — כלומר גם המחיקות של השני וגם ref.delete() */
   Promise.all([
     ref.collection("days").limit(300).get().then(null, function(){ return null; }),
-    ref.collection("measurements").limit(300).get().then(null, function(){ return null; })   /* גם המדידות שממתינות לאישור (23.8.2026) */
+    ref.collection("measurements").limit(300).get().then(null, function(){ return null; }),   /* גם המדידות שממתינות לאישור (23.8.2026) */
+    ref.collection("intake").limit(5).get().then(null, function(){ return null; })            /* וגם שאלון ההיכרות שהלקוחה שלחה (24.8.2026) */
   ]).then(function(snaps){
     var ops = [];
     for (var i=0;i<snaps.length;i++){
@@ -4247,6 +4336,9 @@ function createClient(){
     id: "cl-" + Date.now(),
     name: name,
     sex: "",
+    /* 24.8.2026 (בקשת סיוון): לקוח/ה חדש/ה — השאלון נפתח מיד למילוי בפורטל,
+       ומופיע אצלה בבית ברגע שהקישור מתפרסם */
+    intakeRequested: true,
     subscription: {startDate:"", months:null},
     intake: {},
     summary: null,
@@ -4518,6 +4610,125 @@ function fillIntakeFields(c){
     input.value = (typeof v === "string") ? v : "";
   }
 }
+
+/* --- "שהלקוחה תמלא בקישור" (24.8.2026, בקשת סיוון) ---
+   המצב חי בשדה client.intakeRequested ונוסע במסמך השיתוף, ולכן כל היפוך מפרסם
+   אותו מחדש — כרטיס השאלון בפורטל מופיע או נעלם מיד */
+function renderIntakeToggle(){
+  var chip = $("intakeReqChip"), btn = $("btnIntakeRequest");
+  if (!chip || !btn) return;
+  var c = getActiveClient(null);
+  var on = c !== null && c.intakeRequested === true;
+  chip.textContent = on ? "השאלון פתוח למילוי אצל הלקוחה" : "";
+  chip.className = on ? "chip chip-ok chip-wrap" : "chip chip-neutral hidden";
+  btn.textContent = on ? "סגור את המילוי ללקוחה" : "בקש מהלקוחה למלא בקישור";
+  btn.disabled = (c === null);
+}
+
+/* יש כבר תשובה אחת לפחות אצל סיוון? (קובע אם הייבוא דורש אישור דו-שלבי) */
+function intakeHasAnswers(c){
+  if (!c || !c.intake) return false;
+  for (var k in c.intake){
+    if (!Object.prototype.hasOwnProperty.call(c.intake, k)) continue;
+    if (String(c.intake[k] || "").replace(/^\s+|\s+$/g, "") !== "") return true;
+  }
+  return false;
+}
+
+/* תיבת "הלקוחה מילאה את השאלון" בתוך כרטיס השאלון — נבנית מחדש בכל סנאפשוט */
+function renderIntakeInbox(){
+  var box = $("intakeInboxBox");
+  if (!box) return;
+  var c = getActiveClient(null);
+  /* אותו שער-טוקן כמו בתיבת המדידות: הקאש שייך לטוקן שהמאזין רשום עליו, כדי
+     שהחלפת לקוח/ה לפני הסנאפשוט הבא לא תציג תשובות של אחרת תחת השם החדש */
+  var mine = c !== null && (cloudMode !== "on" || shareTokenOf(c.id) === intakeTokenWatched);
+  var item = (mine && cloudMode === "on") ? intakeCloudCache : null;
+  box.textContent = "";
+  box.classList.toggle("hidden", item === null);
+  if (item === null) return;
+
+  var when = localDayOfISO(item.updatedAt);
+  var head = el("div", "row-flex");
+  head.appendChild(el("span", "chip chip-ok chip-wrap",
+    "הלקוחה מילאה את השאלון" + (when ? " · עודכן " + isoDateText(when) : "")));
+  box.appendChild(head);
+  var row = el("div", "row-flex");
+  var imp = el("button", "btn", "ייבא לתשובות");
+  imp.type = "button";
+  (function(entry){
+    if (intakeHasAnswers(c)){
+      twoStep(imp, "ייבא לתשובות", "יחליף תשובות קיימות — ללחוץ שוב לאישור", function(){ importIntakeDoc(entry); });
+    } else {
+      imp.addEventListener("click", function(){ importIntakeDoc(entry); });
+    }
+    var del = el("button", "btn btn-quiet btn-sm", "מחק");
+    del.type = "button";
+    twoStep(del, "מחק", "למחיקה — לחצי שוב", function(){ deleteIntakeDoc(entry); });
+    row.appendChild(imp);
+    row.appendChild(del);
+  })(item);
+  box.appendChild(row);
+}
+
+/* ייבוא: התשובות נכנסות ל-client.intake (אותה צורת אחסון של שדות השאלון),
+   המילוי נסגר אצל הלקוחה, מסמך הענן נמחק, והשיתוף מתפרסם מחדש */
+function importIntakeDoc(item){
+  if (cloudMode !== "on" || !fbDb){ toast("אין חיבור לענן — התחברי כדי לייבא"); return; }
+  if (!item || !item.answers){ return; }
+  flushIntake();   /* הקלדה מושהית של סיוון לא תדרוס את מה שייובא רגע אחריה */
+  var store = readClientsStore();
+  var c = getActiveClient(store);
+  if (!c) return;
+  var keys = Object.keys(item.answers), wrote = 0;
+  for (var i=0;i<keys.length;i++){
+    var v = item.answers[keys[i]];
+    if (typeof v !== "string" || v === "") continue;
+    c.intake[keys[i]] = v;
+    wrote++;
+  }
+  if (!wrote){ toast("אין תשובות לייבוא"); return; }
+  c.intakeRequested = false;
+  touchClient(c);
+  if (!writeClientsStore(store)){ toast("השמירה בדפדפן נכשלה — התשובות נשארות בענן"); return; }
+  fillIntakeFields(c);
+  renderIntakeToggle();
+  pushShareIfPublished(c);
+  toast("התשובות יובאו — כדאי ללחוץ \"צור סיכום\"");
+  item.ref.delete().then(function(){
+    intakeCloudCache = null;
+    renderIntakeInbox();
+  }, function(){
+    toast("התשובות יובאו, אבל המסמך לא נמחק מהענן — אפשר ללחוץ \"מחק\"");
+  });
+}
+
+function deleteIntakeDoc(item){
+  if (!item || !item.ref) return;
+  item.ref.delete().then(function(){
+    intakeCloudCache = null;
+    renderIntakeInbox();
+    toast("התשובות שהלקוחה שלחה נמחקו");
+  }, function(){
+    toast("המחיקה נכשלה — נסי שוב");
+  });
+}
+
+$("btnIntakeRequest").addEventListener("click", function(){
+  var store = readClientsStore();
+  var c = getActiveClient(store);
+  if (!c) return;
+  c.intakeRequested = !(c.intakeRequested === true);
+  touchClient(c);
+  if (!writeClientsStore(store)) return;
+  renderIntakeToggle();
+  var token = pushShareIfPublished(c);
+  if (c.intakeRequested === true){
+    toast(token ? "השאלון נפתח למילוי אצל הלקוחה" : "השאלון מסומן לפתיחה — יופיע אצלה כשיפורסם קישור");
+  } else {
+    toast("המילוי נסגר — הכרטיס ירד מהקישור של הלקוחה");
+  }
+});
 
 /* --- סיכום --- */
 function summaryCombined(points, warnings){
@@ -4912,6 +5123,8 @@ function renderClientTab(){
 
   if (!intakeBuilt){ buildIntakeFields(); intakeBuilt = true; }
   fillIntakeFields(c);
+  renderIntakeToggle();   /* 24.8.2026: מצב "השאלון פתוח למילוי אצל הלקוחה" */
+  renderIntakeInbox();
   renderSummary(c);
   fillTargetInputs(c);
 
@@ -5159,7 +5372,10 @@ function buildShareDoc(client){
     targets: {kcal:numOrNull(t.kcal), protein:numOrNull(t.protein), carbs:numOrNull(t.carbs), fat:numOrNull(t.fat)},
     summary: hasSummary ? {warnings:sum.warnings, points:sum.points} : null,
     menus: menus,
-    tracking: shareTrackingDoc(client.tracking)
+    tracking: shareTrackingDoc(client.tracking),
+    /* שאלון היכרות שהלקוחה ממלאת בפורטל (24.8.2026). null = הכרטיס לא מוצג אצלה;
+       הוא נעלם משם ברגע שסיוון סוגרת את המילוי או מייבאת את התשובות */
+    intake: (client.intakeRequested === true) ? {requested:true, questions:intakeShareQuestions()} : null
   };
 }
 
@@ -5272,6 +5488,7 @@ function refreshShareCard(){
   var token = (cloudOn && c) ? shareTokenOf(c.id) : "";
   watchClientResponse(token);
   watchMeasurements(token);   /* 23.8.2026: תיבת המדידות עוקבת אחרי הלקוח/ה הפעיל/ה בכל אירוע ענן */
+  watchIntakeDoc(token);      /* 24.8.2026: וכך גם תיבת "הלקוחה מילאה את השאלון" */
   $("shareLinkOut").value = token ? (SHARE_LINK_BASE + token) : "";
   $("btnPublishShare").classList.toggle("hidden", token !== "");
   $("btnCopyShareLink").classList.toggle("hidden", token === "");
