@@ -259,12 +259,6 @@ td.n,th.n{text-align:end; white-space:nowrap}
 .sum-total span{font-size:13px; color:var(--text-muted)}
 .menu-sum{background:var(--surface)}
 .menu-sum .bar{height:8px}
-/* תצוגת יום קודם — קריאה בלבד (24.8.2026): מה שנשמר באותו יום, בלי כפתורי מילוי */
-.day-meal{display:flex; flex-direction:column; gap:3px; padding:10px 0; border-bottom:1px solid var(--border)}
-.day-meal-name{font-weight:800; font-size:14px}
-.day-row{font-size:13px; color:var(--text-muted)}
-.day-meal-sum{font-size:12.5px; font-weight:700}
-.day-grand{font-size:15px; font-weight:800; padding-top:4px}
 
 /* ---------- מילוי עצמי (ארוחה עם תקציב) ---------- */
 .fill{border-top:2px solid var(--border-strong); background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:10px}
@@ -687,8 +681,10 @@ td.n,th.n{text-align:end; white-space:nowrap}
       <p class="note-line hidden" id="menuMeta"></p>
       <div class="alert hidden" id="staleNote"></div>
       <div class="alert hidden" id="catalogFailNote">לא הצלחנו לטעון את רשימת המזונות כרגע — רעננו את הדף כדי למלא את הבחירות שלך</div>
+      <!-- מילוי יום אחורה (24.8.2026): מזכיר ללקוחה שהשמירה נכנסת ליום שנבחר, לא להיום -->
+      <div class="alert hidden" id="dayEditNote"></div>
       <div class="stack" id="menuBody"></div>
-      <!-- תצוגת יום קודם, קריאה בלבד (24.8.2026) — מחליפה את האקורדיון כשבוחרים יום שעבר -->
+      <!-- יום קודם בטעינה/כישלון (24.8.2026) — האקורדיון יורד עד שיודעים מה כבר נשמר באותו יום -->
       <div class="stack hidden" id="dayViewBox"></div>
       <div class="fill-save hidden" id="fillSaveBar">
         <button class="btn" id="btnSaveChoices" type="button">שמירת הבחירות שלי</button>
@@ -926,6 +922,10 @@ var CATALOG = [];            /* מזונות מ-catalog/main: {id,name,cat,kcal1
 var CATALOG_READY = false;
 var ACTIVE_MENU_IDX = 0;
 var FILL_CHOICES = {};       /* "menuIdx:mealIdx" → מערך {name, grams, kcal100, free} */
+/* 24.8.2026 (בקשת סיוון): מילוי ימים אחורה. לכל יום נבחר יש מפה משלו — "" = היום,
+   אחרת ISO של יום שעבר. FILL_CHOICES הוא תמיד *מצביע* ל-CHOICES_BY_DAY[DAY_SEL],
+   כך שכל מי שקורא אותו (המילוי, המד, השמירה) עובד על היום המוצג בלי לדעת מזה */
+var CHOICES_BY_DAY = {"": FILL_CHOICES};
 /* 24.8.2026: איזו ארוחה פתוחה באקורדיון, לפי אותו מפתח. showMenu נקרא מחדש בכל טעינת
    קטלוג/תשובה ובכל בחירת תפריט — בלי הזיכרון הזה כל רינדור היה סוגר את מה שנפתח */
 var MEAL_OPEN = {};
@@ -1547,7 +1547,13 @@ function menuSummary(menu, targets){
              : ((isFinite(planned) && planned > 0) ? Math.round(planned) : null);
 
   var head = el("div","sum-head");
-  head.appendChild(el("span","sum-head-label","נאכל היום"));
+  var headLabel = el("span","sum-head-label","נאכל היום");
+  /* 24.8.2026: במילוי יום אחורה המד סופר את אותו יום — והכותרת אומרת את זה */
+  if (DAY_SEL !== ""){
+    var dinf = dayInfo(DAY_SEL);
+    headLabel.textContent = "נאכל ביום " + (dinf.label || dinf.date);
+  }
+  head.appendChild(headLabel);
   var tot = el("span","sum-total");
   var num = el("b","num","0");
   num.id = "eatenKcalNum";
@@ -1766,56 +1772,90 @@ function renderDayStrip(){
   show(strip, true);
 }
 
-/* בחירת יום: היום = חזרה לתצוגה החיה · יום שעבר = תצוגה קריאה בלבד במקום האקורדיון */
+/* בחירת יום (24.8.2026, בקשת סיוון): כל יום שכבר היה הוא יום שאפשר *למלא* — היום
+   הוא התצוגה החיה, ויום שעבר נפתח לעריכה מלאה אחרי שקראנו מה כבר נשמר בו.
+   שמירה ביום שעבר נכנסת למסמך של אותו יום בלבד (ראו saveChoices) */
 function selectDay(iso){
   var today = localDayISO();
   DAY_SEL = (textOf(iso) === today) ? "" : textOf(iso);
   renderDayStrip();
   var box = $("dayViewBox");
   if (DAY_SEL === ""){
-    show($("menuBody"), true);
-    show($("menuPick"), PORTAL_MENUS.length > 1);
+    if (!Object.prototype.hasOwnProperty.call(CHOICES_BY_DAY, "")) CHOICES_BY_DAY[""] = {};
+    FILL_CHOICES = CHOICES_BY_DAY[""];
     clear(box);
     show(box, false);
-    refreshSaveBar();
+    show($("dayEditNote"), false);
+    show($("menuBody"), true);
+    show($("menuPick"), PORTAL_MENUS.length > 1);
+    showMenu(ACTIVE_MENU_IDX);   /* בנייה מחדש — עיגולי ה-וי, שורות המילוי והמד חוזרים להיום */
     updateStaleNote();
     return;
   }
+  /* היום הזה כבר נקרא בסשן הזה — ישר לעריכה, כולל מילוי שעוד לא נשמר */
+  if (Object.prototype.hasOwnProperty.call(CHOICES_BY_DAY, DAY_SEL)){ enterDayEdit(DAY_SEL); return; }
   show($("menuBody"), false);
   show($("fillSaveBar"), false);
   show($("menuPick"), false);
   show($("staleNote"), false);
+  show($("dayEditNote"), false);
+  clear(box);
+  box.appendChild(el("p","lede","טוען..."));
   show(box, true);
-  showDayView(DAY_SEL);
+  loadDayForEdit(DAY_SEL);
+}
+
+/* מצב עריכה של יום שעבר: אותו אקורדיון בדיוק, על הבחירות של אותו יום */
+function enterDayEdit(iso){
+  FILL_CHOICES = CHOICES_BY_DAY[iso];
+  var box = $("dayViewBox");
+  clear(box);
+  show(box, false);
+  show($("staleNote"), false);   /* באנר "בחירות מיום קודם" שייך לתצוגת היום בלבד */
+  show($("menuBody"), true);
+  show($("menuPick"), PORTAL_MENUS.length > 1);
+  var info = dayInfo(iso);
+  var note = $("dayEditNote");
+  if (note){
+    note.textContent = "את ממלאת את יום " + (info.label ? info.label + " " : "") + info.date +
+                       " — השמירה תיכנס ליום הזה בלבד";
+    show(note, true);
+  }
+  showMenu(ACTIVE_MENU_IDX);
+  refreshSaveBar();
 }
 
 /* מסמך-היום: מהמטמון אם כבר נקרא, אחרת קריאה אחת מהענן. כישלון (חוקים שעוד לא
-   פורסמו / אין רשת) לא נכנס למטמון — כדי שלחיצה נוספת תנסה שוב */
-function showDayView(iso){
+   פורסמו / אין רשת) לא נכנס למטמון — כדי שלחיצה נוספת תנסה שוב, וגם לא נפתח
+   למילוי: בלי לדעת מה כבר שמור באותו יום, שמירה הייתה דורסת אותו בשקט */
+function loadDayForEdit(iso){
   var box = $("dayViewBox");
   if (!box) return;
   if (Object.prototype.hasOwnProperty.call(DAY_CACHE, iso)){
-    renderDayView(iso, DAY_CACHE[iso]);
+    CHOICES_BY_DAY[iso] = choicesFromSavedMeals(DAY_CACHE[iso] ? DAY_CACHE[iso].meals : [], PORTAL_MENUS);
+    enterDayEdit(iso);
     return;
   }
-  clear(box);
-  box.appendChild(el("p","lede","טוען..."));
-  if (!PORTAL_DB || !PORTAL_TOKEN){
-    clear(box);
-    box.appendChild(el("p","lede","אי אפשר להציג כרגע את הימים הקודמים — נסי שוב מאוחר יותר"));
-    return;
-  }
+  if (!PORTAL_DB || !PORTAL_TOKEN){ dayLoadFailed(box); return; }
   var tok = PORTAL_TOKEN;
   PORTAL_DB.collection("responses").doc(PORTAL_TOKEN).collection("days").doc(iso).get().then(function(snap){
     if (PORTAL_TOKEN !== tok || DAY_SEL !== iso) return;   /* התחלפה תוכנית או נבחר יום אחר */
     var day = (snap && snap.exists) ? normalizeDayDoc(snap.data()) : null;
     DAY_CACHE[iso] = day;
-    renderDayView(iso, day);
+    CHOICES_BY_DAY[iso] = choicesFromSavedMeals(day ? day.meals : [], PORTAL_MENUS);
+    enterDayEdit(iso);
   }, function(){
     if (PORTAL_TOKEN !== tok || DAY_SEL !== iso) return;
-    clear(box);
-    box.appendChild(el("p","lede","אי אפשר להציג כרגע את הימים הקודמים — נסי שוב מאוחר יותר"));
+    dayLoadFailed(box);
   });
+}
+
+/* לא הצלחנו לקרוא את היום — הודעה בלבד, בלי אקורדיון ובלי בר שמירה */
+function dayLoadFailed(box){
+  clear(box);
+  box.appendChild(el("p","lede","אי אפשר להציג כרגע את הימים הקודמים — נסי שוב מאוחר יותר"));
+  show(box, true);
+  refreshSaveBar();
 }
 
 /* נרמול מסמך-היום לצורה שהתצוגה מציירת — ארוחות בלי שורות יורדות */
@@ -1842,48 +1882,6 @@ function normalizeDayDoc(data){
               budget:mealBudgetOf(m), rows:rows});
   }
   return {meals:out};
-}
-
-function renderDayView(iso, day){
-  var box = $("dayViewBox");
-  if (!box) return;
-  clear(box);
-  var info = dayInfo(iso);
-  if (!day || !day.meals.length){
-    box.appendChild(el("p","lede","עדיין לא מולא ביום הזה"));
-    return;
-  }
-  var head = el("div","sum-head");
-  head.appendChild(el("span","sum-head-label",
-    "מה נאכל ביום " + (info.label ? info.label + " " : "") + info.date));
-  box.appendChild(head);
-
-  var multi = PORTAL_MENUS.length > 1;
-  var grand = 0;
-  for (var i=0; i<day.meals.length; i++){
-    var m = day.meals[i];
-    var mealBox = el("div","day-meal");
-    var title = m.name;
-    if (multi && m.menu !== "") title += " (" + m.menu + ")";
-    mealBox.appendChild(el("p","day-meal-name", title));
-    var sum = 0;
-    for (var j=0; j<m.rows.length; j++){
-      var r = m.rows[j];
-      sum += r.kcal;
-      var parts = [];
-      if (r.cat !== "" && CAT_LABELS[r.cat]) parts.push(CAT_LABELS[r.cat]);
-      parts.push(r.name);
-      if (r.free) parts.push("חופשי");
-      else { parts.push(numText(r.grams, 0) + " ג'"); parts.push(numText(r.kcal, 0) + " קק\"ל"); }
-      mealBox.appendChild(el("p","day-row", parts.join(" · ")));
-    }
-    grand += sum;
-    var sumText = "סה\"כ: " + n(sum) + " קק\"ל";
-    if (m.budget !== null) sumText += " מתוך " + n(m.budget);
-    mealBox.appendChild(el("p","day-meal-sum", sumText));
-    box.appendChild(mealBox);
-  }
-  box.appendChild(el("p","day-grand", "סה\"כ ביום הזה: " + n(grand) + " קק\"ל"));
 }
 
 /* עמודות טבלת המעקב כפי שסיוון הגדירה אותן ({id,label}, רק עם id לא ריק).
@@ -2547,8 +2545,9 @@ function refreshSaveBar(){
   if (!bar) return;
   var menu = PORTAL_MENUS[ACTIVE_MENU_IDX];
   var active = CATALOG_READY && menu && menuHasMeals(menu);
-  /* 24.8.2026: בתצוגת יום קודם (DAY_SEL) הבר יורד — שם קוראים בלבד, לא ממלאים */
-  var live = active && DAY_SEL === "";
+  /* 24.8.2026: הבר חי בהיום, וגם ביום שעבר שכבר נכנס למצב עריכה (קראנו את מסמך
+     היום). בזמן טעינה או אחרי כישלון קריאה הוא יורד — אין על מה לשמור */
+  var live = active && (DAY_SEL === "" || Object.prototype.hasOwnProperty.call(CHOICES_BY_DAY, DAY_SEL));
   show(bar, live);
   if (live){
     var over = anyOverBudget();
@@ -2561,6 +2560,11 @@ function refreshSaveBar(){
     } else if (over){
       note.textContent = "יש חריגה מהתקציב — אפשר לשמור, סיוון תראה את החריגה";
       note.className = "fill-save-note bad";
+    } else if (DAY_SEL !== ""){
+      /* 24.8.2026: ביום שעבר לא מציגים את שעת השמירה של היום — אלא לאן זה ילך */
+      var dsel = dayInfo(DAY_SEL);
+      note.textContent = "המילוי יישמר ליום " + (dsel.label ? dsel.label + " " : "") + dsel.date;
+      note.className = "fill-save-note";
     } else if (SAVED_AT){
       note.textContent = "נשמר לאחרונה: " + isoDateText(localDayOf(SAVED_AT) || SAVED_AT);
       note.className = "fill-save-note";
@@ -2601,6 +2605,7 @@ function saveChoices(){
   if (!PORTAL_DB || !PORTAL_TOKEN || SAVING) return;
   if (!PORTAL_MENUS.length) return;
   var tok = PORTAL_TOKEN;   /* 23.8.2026: הטוקן שאליו השמירה הזו שייכת (ראו הבדיקה ב-then) */
+  var savedDay = DAY_SEL;   /* 24.8.2026: והיום שאליו היא שייכת — "" = היום, אחרת מילוי אחורה */
   /* QA 20.8.2026: נשמרות הבחירות של *כל* התפריטים (לא רק המוצג) — קודם, שמירה
      בתפריט אחד דרסה בשקט את הבחירות של התפריט השני. כל ארוחה נושאת את שם
      התפריט שלה (menu) כדי שהשחזור יידע לשייך נכון */
@@ -2636,6 +2641,28 @@ function saveChoices(){
      תאריך היום לפי שעון מקומי — שמירה ב-00:30 בישראל לא תירשם על אתמול (UTC) */
   var payload = {v:1, updatedAt:when, meals:outMeals};
   var latestRef = PORTAL_DB.collection("responses").doc(PORTAL_TOKEN);
+  /* 24.8.2026 (מילוי יום אחורה): ביום שעבר יש כתיבה *אחת* בלבד — מסמך אותו יום.
+     המסמך הראשי הוא "המצב האחרון" של היום, ומילוי אחורה לא נוגע בו וגם לא ב-SAVED_AT */
+  if (savedDay !== ""){
+    var savedInfo = dayInfo(savedDay);
+    latestRef.collection("days").doc(savedDay).set(payload).then(function(){
+      SAVING = false;
+      if (PORTAL_TOKEN !== tok){ refreshSaveBar(); return; }
+      DAY_CACHE[savedDay] = normalizeDayDoc(payload);   /* המטמון מחזיק עכשיו את מה שנכתב */
+      refreshSaveBar();
+      if (DAY_SEL !== savedDay) return;   /* בינתיים עברה ליום אחר — ההודעה כבר לא שלו */
+      note.textContent = "נשמר ליום " + (savedInfo.label || savedInfo.date) +
+                         " ✓ — סיוון רואה את זה במעקב הארוחות";
+      note.className = "fill-save-note ok";
+    }).catch(function(){
+      SAVING = false;
+      refreshSaveBar();
+      if (PORTAL_TOKEN !== tok) return;
+      note.textContent = "השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב";
+      note.className = "fill-save-note bad";
+    });
+    return;
+  }
   Promise.all([
     latestRef.set(payload),
     latestRef.collection("days").doc(localDayISO()).set(payload)
@@ -2696,24 +2723,22 @@ function applyCatalog(snap){
 
 /* שחזור בחירות שמורות: התאמה לפי שם הארוחה בתפריטים המוצגים.
    QA 20.8.2026: מסמך חדש נושא גם את שם התפריט (menu) על כל ארוחה — כשקיים,
-   ההתאמה דורשת גם אותו, כדי ש"ארוחת בוקר" של תפריט א' לא תזלוג לתפריט ב' */
-function applyResponse(snap, shareData){
-  var data = (snap && snap.exists) ? objOf(snap.data()) : null;
-  if (!data) return;
-  SAVED_AT = textOf(data.updatedAt);
-  var saved = arrOf(data.meals);
-  /* אותו מיון כמו התצוגה (sortedShareMenus) — mi כאן חייב להצביע על אותו תפריט
-     שהמסך מצייר באותו אינדקס, אחרת הבחירות נדבקות לתפריט הלא-נכון (סקירה 24.8.2026) */
-  var menus = sortedShareMenus(shareData && shareData.menus);
+   ההתאמה דורשת גם אותו, כדי ש"ארוחת בוקר" של תפריט א' לא תזלוג לתפריט ב'.
+   24.8.2026: חולץ לפונקציה שמחזירה מפת בחירות חדשה (במקום לכתוב לגלובלי) —
+   אותו שחזור בדיוק משרת את המסמך הראשי (היום) ואת מסמך של יום שעבר (מילוי אחורה) */
+function choicesFromSavedMeals(savedMeals, menus){
+  var out = {};
+  var saved = arrOf(savedMeals);
+  var list = arrOf(menus);
   /* שמות התפריטים הקיימים כרגע — שם שמור שלא קיים יותר (סיוון שינתה שם תפריט)
      חוזר להתאמה לפי שם ארוחה בלבד, כדי שהבחירות לא ייעלמו (ביקורת 20.8) */
   var liveNames = {};
-  for (var ln=0; ln<menus.length; ln++){
-    var lm = objOf(menus[ln]);
+  for (var ln=0; ln<list.length; ln++){
+    var lm = objOf(list[ln]);
     if (lm) liveNames[textOf(lm.name)] = true;
   }
-  for (var mi=0; mi<menus.length; mi++){
-    var menuObj = objOf(menus[mi]) || {};
+  for (var mi=0; mi<list.length; mi++){
+    var menuObj = objOf(list[mi]) || {};
     var menuName = textOf(menuObj.name);
     var meals = arrOf(menuObj.meals);
     for (var i=0;i<meals.length;i++){
@@ -2750,11 +2775,23 @@ function applyResponse(snap, shareData){
                      protein100:found ? found.protein100 : 0, carbs100:found ? found.carbs100 : 0, fat100:found ? found.fat100 : 0,
                      cat:rcat, free:free});
         }
-        FILL_CHOICES[fillKey(mi, i)] = rows;
+        out[fillKey(mi, i)] = rows;
         break;
       }
     }
   }
+  return out;
+}
+
+function applyResponse(snap, shareData){
+  var data = (snap && snap.exists) ? objOf(snap.data()) : null;
+  if (!data) return;
+  SAVED_AT = textOf(data.updatedAt);
+  /* אותו מיון כמו התצוגה (sortedShareMenus) — mi בשחזור חייב להצביע על אותו תפריט
+     שהמסך מצייר באותו אינדקס, אחרת הבחירות נדבקות לתפריט הלא-נכון (סקירה 24.8.2026).
+     המסמך הראשי הוא תמיד המצב של *היום* (24.8.2026) */
+  CHOICES_BY_DAY[""] = choicesFromSavedMeals(arrOf(data.meals), sortedShareMenus(shareData && shareData.menus));
+  if (DAY_SEL === "") FILL_CHOICES = CHOICES_BY_DAY[""];
 }
 
 /* פונקציית התצוגה היחידה — מקבלת מסמך שיתוף מוכן ומציירת את כל העמוד */
@@ -2869,8 +2906,12 @@ function loadShare(token, source){
   /* 23.8.2026: איפוס כל המצב שתלוי בשיתוף. העמוד יודע לטעון עכשיו יותר משיתוף אחד בחיים שלו
      (זיכרון-מכשיר→חשבון מקושר, קישור אחר באותו טאב) — בלי האיפוס הבחירות, שעת השמירה,
      הקטלוג והטאב הפעיל של הלקוחה הקודמת נשארים על המסך ואף נשמרים לתוכנית החדשה */
-  SHARE = null; FILL_CHOICES = {}; MEAL_OPEN = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
+  SHARE = null; MEAL_OPEN = {}; SAVED_AT = ""; ACTIVE_MENU_IDX = 0;
+  /* 24.8.2026: מפת הבחירות של כל יום מתאפסת, ו-FILL_CHOICES חוזר להצביע על היום */
+  CHOICES_BY_DAY = {}; CHOICES_BY_DAY[""] = {}; FILL_CHOICES = CHOICES_BY_DAY[""];
   DAY_SEL = ""; DAY_CACHE = {}; EATEN_GOAL = null;   /* 24.8.2026: גם רצועת הימים והמד */
+  /* מסך היום הקודם לא נשאר על המסך של השיתוף החדש (24.8.2026) */
+  show($("dayEditNote"), false); clear($("dayViewBox")); show($("dayViewBox"), false); show($("menuBody"), true);
   PORTAL_MENUS = []; CATALOG = []; CATALOG_READY = false; PORTAL_VIEW = "home";
   MEAS_SAVING = false;
   resetMeasureCard();   /* 23.8.2026: גם כרטיס המדידות — שדות, תאריך, הערה, ממתינות וכפתור */
