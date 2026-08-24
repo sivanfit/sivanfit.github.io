@@ -168,6 +168,9 @@ textarea{resize:vertical; min-height:64px; line-height:1.5}
 .seg button[aria-pressed="true"]{background:var(--primary); color:var(--on-primary)}
 /* בורר התצוגה בטאב המזונות — תוויות ארוכות, ולכן לפי רוחב הטקסט ובלי שבירת שורה */
 #foodsViewSeg button{flex:0 0 auto; white-space:nowrap; padding-inline:12px}
+/* תצוגה לפי כמות (25.8.2026) */
+.foods-qty-in{width:110px}
+#foodsQtyUnitSeg button{flex:0 0 auto; white-space:nowrap; padding-inline:12px}
 .btn{
   appearance:none; font:inherit; font-size:14px; font-weight:700; cursor:pointer;
   border-radius:var(--radius-sm); padding:9px 14px; border:1px solid var(--primary);
@@ -1066,10 +1069,21 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <div class="seg" id="foodsViewSeg">
           <button type="button" data-view="values" aria-pressed="true">ערכים ל-100 ג'</button>
           <button type="button" data-view="portions" aria-pressed="false">תצוגת מנות</button>
+          <button type="button" data-view="qty" aria-pressed="false">לפי כמות</button>
         </div>
+      </div>
+      <!-- תצוגה לפי כמות (25.8.2026, בקשת סיוון): בוחרים גרמים או קלוריות + כמות — וכל הטבלה מתעדכנת -->
+      <div class="row-flex hidden" id="foodsQtyRow">
+        <div class="seg" id="foodsQtyUnitSeg">
+          <button type="button" data-unit="grams" aria-pressed="true">גרמים</button>
+          <button type="button" data-unit="kcal" aria-pressed="false">קלוריות</button>
+        </div>
+        <input type="number" id="foodsQtyIn" class="foods-qty-in" min="0" step="10" value="100" aria-label="הכמות לחישוב">
+        <span class="note-line" style="border:0;padding:0" id="foodsQtyUnitLabel">ג'</span>
       </div>
       <p class="note-line" id="foodsBasisNote">הערכים ל-100 גרם, כפי שנאכל (מזון מבושל — במצב מבושל). עמודת המנה הביתית — להתמצאות.</p>
       <p class="note-line hidden" id="foodsPortionNote">מנה: פחמימה 150 קק"ל · חלבון 300 · שומן 100 · ירק = 2 ירקות עד 100 קק"ל ביחד (חופשיים לא נספרים)</p>
+      <p class="note-line hidden" id="foodsQtyNote">הערכים מחושבים לכמות שבחרת — שינוי הכמות מעדכן את כל הטבלה. במצב קלוריות: כמה גרמים נותנים את הכמות.</p>
       <div class="table-scroll sticky-first">
         <table>
           <thead>
@@ -1082,6 +1096,9 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
             </tr>
             <tr class="hidden" id="foodsHeadPortions">
               <th>מזון</th><th>מנה אחת</th><th>ביחידות ביתיות</th><th class="n">קק"ל בפועל</th>
+            </tr>
+            <tr class="hidden" id="foodsHeadQty">
+              <th>מזון</th><th>קטגוריה</th><th class="n">גרמים</th><th class="n">קק"ל</th><th class="n">חלבון</th><th class="n">פחמימה</th><th class="n">שומן</th>
             </tr>
           </thead>
           <tbody id="foodsBody"></tbody>
@@ -7820,6 +7837,12 @@ $("btnMorningRefresh").addEventListener("click", function(){ fetchMorning(true);
 var foodFilter = "all";
 /* מצב התצוגה זמני בלבד (לא נשמר) — כל טעינה מתחילה ב"ערכים ל-100 ג'" */
 var foodsView = "values";
+/* תצוגה לפי כמות (25.8.2026): יחידה (גרמים/קלוריות) והכמות — זמניים כמו foodsView */
+var foodsQtyUnit = "grams";
+function foodsQtyVal(){
+  var v = Number($("foodsQtyIn").value);
+  return (isFinite(v) && v > 0) ? v : 100;
+}
 /* מיון עמודות בתצוגת הערכים (QA 20.8.2026) — אותו דפוס כמו בטאב המוצרים */
 var foodsSortKey = "";
 var foodsSortDir = "asc";
@@ -7860,18 +7883,34 @@ var foodsSortDir = "asc";
 })();
 $("foodSearch").addEventListener("input", renderFoods);
 
-/* בורר התצוגה: אותה רשימה מסוננת, שתי קבוצות עמודות שונות */
+/* בורר התצוגה: אותה רשימה מסוננת, שלוש קבוצות עמודות (25.8.2026: נוספה "לפי כמות") */
 (function initFoodsViewSeg(){
   var btns = $("foodsViewSeg").querySelectorAll("button");
   for (var i=0;i<btns.length;i++){
     (function(b){
       b.addEventListener("click", function(){
-        foodsView = (b.getAttribute("data-view") === "portions") ? "portions" : "values";
+        var v = b.getAttribute("data-view");
+        foodsView = (v === "portions" || v === "qty") ? v : "values";
         syncFoodsViewSeg();
         renderFoods();
       });
     })(btns[i]);
   }
+  /* פקדי "לפי כמות" (25.8.2026, בקשת סיוון): יחידה + כמות — כל שינוי מרנדר מחדש */
+  var unitBtns = $("foodsQtyUnitSeg").querySelectorAll("button");
+  for (var u=0;u<unitBtns.length;u++){
+    (function(ub){
+      ub.addEventListener("click", function(){
+        foodsQtyUnit = (ub.getAttribute("data-unit") === "kcal") ? "kcal" : "grams";
+        for (var w=0;w<unitBtns.length;w++){
+          unitBtns[w].setAttribute("aria-pressed", unitBtns[w] === ub ? "true" : "false");
+        }
+        $("foodsQtyUnitLabel").textContent = (foodsQtyUnit === "kcal") ? 'קק"ל' : "ג'";
+        renderFoods();
+      });
+    })(unitBtns[u]);
+  }
+  $("foodsQtyIn").addEventListener("input", renderFoods);
   syncFoodsViewSeg();
 })();
 
@@ -7881,10 +7920,14 @@ function syncFoodsViewSeg(){
   for (var i=0;i<btns.length;i++){
     btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-view") === foodsView ? "true" : "false");
   }
-  $("foodsHeadValues").classList.toggle("hidden", portions);
+  var qty = (foodsView === "qty");
+  $("foodsHeadValues").classList.toggle("hidden", portions || qty);
   $("foodsHeadPortions").classList.toggle("hidden", !portions);
-  $("foodsBasisNote").classList.toggle("hidden", portions);
+  $("foodsHeadQty").classList.toggle("hidden", !qty);
+  $("foodsQtyRow").classList.toggle("hidden", !qty);
+  $("foodsBasisNote").classList.toggle("hidden", portions || qty);
   $("foodsPortionNote").classList.toggle("hidden", !portions);
+  $("foodsQtyNote").classList.toggle("hidden", !qty);
 }
 
 /* תיאור המנה הביתית: "פרוסה (30 ג')" — ובלי מנה מוגדרת, מקף */
@@ -7954,6 +7997,39 @@ function fillPortionCells(tr, f){
   tr.appendChild(el("td","n", String(info.kcal)));
 }
 
+/* עמודות "לפי כמות" (25.8.2026, בקשת סיוון): הערכים לכמות שנבחרה — בגרמים,
+   או בקלוריות (ואז מחושב כמה גרמים נותנים את הכמות). חופשי נשאר חופשי */
+function fillQtyCells(tr, f){
+  tr.appendChild(el("td", null, CAT_LABEL[f.cat] || f.cat));
+  if (f.free === true){
+    var tdFree = el("td", null);
+    tdFree.colSpan = 5;
+    tdFree.appendChild(el("span","chip chip-ok","חופשי — לא נספר"));
+    tr.appendChild(tdFree);
+    return;
+  }
+  var qty = foodsQtyVal();
+  var g;
+  if (foodsQtyUnit === "kcal"){
+    var k100 = Number(f.kcal100);
+    if (!isFinite(k100) || k100 <= 0){
+      var tdNone = el("td", null);
+      tdNone.colSpan = 5;
+      tdNone.appendChild(el("span","lede","בלי קלוריות — אין מה לחשב"));
+      tr.appendChild(tdNone);
+      return;
+    }
+    g = Math.round(qty * 100 / k100);
+  } else {
+    g = Math.round(qty);
+  }
+  tr.appendChild(el("td","n", g + " ג'"));
+  tr.appendChild(el("td","n", String(Math.round(Number(f.kcal100) * g / 100))));
+  tr.appendChild(el("td","n", round1(Number(f.protein100) * g / 100) + " ג'"));
+  tr.appendChild(el("td","n", round1(Number(f.carbs100) * g / 100) + " ג'"));
+  tr.appendChild(el("td","n", round1(Number(f.fat100) * g / 100) + " ג'"));
+}
+
 /* הטבלה נבנית מהמאגר הממוזג — מזון אישי מסומן בצ'יפ ואפשר למחוק אותו מכאן.
    אבות המזון (generic) לא מוצגים כאן: הם שורות מרשם לבונה, לא ערכים במאגר */
 function renderFoods(){
@@ -8005,6 +8081,7 @@ function renderFoods(){
       td1.appendChild(nameBox);
       tr.appendChild(td1);
       if (foodsView === "portions") fillPortionCells(tr, f);
+      else if (foodsView === "qty") fillQtyCells(tr, f);
       else fillValueCells(tr, f);
       body.appendChild(tr);
     })(list[i]);
@@ -8013,7 +8090,7 @@ function renderFoods(){
   if (count === 0){
     var emptyTr = document.createElement("tr");
     var emptyTd = document.createElement("td");
-    emptyTd.colSpan = (foodsView === "portions") ? 4 : 7;
+    emptyTd.colSpan = (foodsView === "portions") ? 4 : 7;   /* qty = 7 עמודות כמו values */
     emptyTd.appendChild(el("span","lede","לא נמצאו מזונות מתאימים לחיפוש — אפשר לנסות ניסוח אחר, או להוסיף מזון חדש בכרטיס \"הוסף מזון\" למטה."));
     emptyTr.appendChild(emptyTd);
     body.appendChild(emptyTr);
