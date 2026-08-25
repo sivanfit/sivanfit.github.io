@@ -3342,6 +3342,10 @@ function choicesFromSavedMeals(savedMeals, menus){
 function applyResponse(snap, shareData){
   var data = (snap && snap.exists) ? objOf(snap.data()) : null;
   if (!data) return;
+  /* יום חדש מתחיל נקי (25.8.2026, בקשת סיוון): שמירה מיום קודם לא משוחזרת ל"היום" —
+     היא חיה במסמך היום שלה וזמינה דרך רצועת השבוע. חותמת לא-תקינה → מתנהגים כמו קודם */
+  var savedDayLocal = localDayOf(textOf(data.updatedAt));
+  if (savedDayLocal !== "" && savedDayLocal !== localDayISO()) return;
   SAVED_AT = textOf(data.updatedAt);
   /* אותו מיון כמו התצוגה (sortedShareMenus) — mi בשחזור חייב להצביע על אותו תפריט
      שהמסך מצייר באותו אינדקס, אחרת הבחירות נדבקות לתפריט הלא-נכון (סקירה 24.8.2026).
