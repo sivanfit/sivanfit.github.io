@@ -617,6 +617,23 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
 /* מוצר → מזון אישי: כפתור גלוי בשורת המוצר + בורר קטגוריה בפירוט (28.8.2026, בקשת סיוון) */
 .prod-add-cell{text-align:center; white-space:nowrap}
 .prod-cat-pick{display:inline-flex; align-items:center; gap:6px}
+/* קבוצות קטגוריה בטבלת מאגר המזונות (מפרט 4, 28.8.2026, בקשת סיוון): שורת-כותרת מתקפלת
+   באותה טבלה — לפני שורות כל קטגוריה, עם שם, מונה וחץ שמסתובב במצב פתוח (כמו ב-card-fold) */
+tr.food-group-row{cursor:pointer; background:var(--surface-2)}
+tr.food-group-row:hover{background:var(--surface-3)}
+tr.food-group-row td{padding:10px 12px; border-bottom:1px solid var(--border)}
+/* שורת הקבוצה נפרשת על כל העמודות (colspan) — מבטלים את ה-sticky/רקע של עמודה ראשונה
+   שחל עליה מ-.sticky-first (אין טעם בהצמדה כשהתא כבר רחב כמו הטבלה כולה) */
+.sticky-first tbody tr.food-group-row td:first-child{position:static; background:transparent}
+.food-group-head{display:flex; align-items:center; gap:8px}
+.food-group-label{font-family:var(--serif); font-weight:700; font-size:14px; color:var(--text)}
+.food-group-count{font-size:12px; font-weight:700; color:var(--text-soft); background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:1px 9px}
+.food-group-arrow{margin-inline-start:auto; font-size:13px; color:var(--text-soft); transition:transform .15s}
+tr.food-group-row[aria-expanded="true"] .food-group-arrow{transform:rotate(180deg)}
+tr.food-group-row:hover .food-group-arrow{color:var(--text)}
+@media (max-width:719px){
+  .food-group-label{font-size:13px}
+}
 /* ==== SAND-SERIF-END ==== */
 
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
@@ -1002,108 +1019,127 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
     </div>
 
     <!-- QA 20.8.2026: הבחירות החיות של הלקוח/ה עלו לראש הטאב — זה מה שסיוון בודקת כל בוקר -->
-    <div class="card stack hidden" id="clientChoicesWrap">
-      <div>
-        <span class="eyebrow">מילוי עצמי</span>
-        <h2 class="card-title">הבחירות של הלקוח/ה — סיכום יומי</h2>
+    <!-- מפרט 4 (28.8.2026, בקשת סיוון): כרטיס מתקפל — ה-id עובר ל-details, התוכן ל-card-fold-body -->
+    <details class="card card-fold hidden" id="clientChoicesWrap" open>
+      <summary>
+        <div>
+          <span class="eyebrow">מילוי עצמי</span>
+          <h2 class="card-title">הבחירות של הלקוח/ה — סיכום יומי</h2>
+        </div>
+      </summary>
+      <div class="stack card-fold-body">
+        <p class="note-line" id="clientChoicesMeta"></p>
+        <div class="stat-grid stat-grid-4" id="choicesStats">
+          <div class="stat"><span class="stat-label">קלוריות</span><span class="stat-value num" data-choice-val="kcal">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="kcal"><span class="chip-dot"></span><span data-choice-text="kcal">—</span></span></div>
+          <div class="stat"><span class="stat-label">חלבון</span><span class="stat-value num" data-choice-val="protein">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="protein"><span class="chip-dot"></span><span data-choice-text="protein">—</span></span></div>
+          <div class="stat"><span class="stat-label">פחמימה</span><span class="stat-value num" data-choice-val="carbs">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="carbs"><span class="chip-dot"></span><span data-choice-text="carbs">—</span></span></div>
+          <div class="stat"><span class="stat-label">שומן</span><span class="stat-value num" data-choice-val="fat">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="fat"><span class="chip-dot"></span><span data-choice-text="fat">—</span></span></div>
+        </div>
+        <div class="stack" id="clientChoicesBody"></div>
       </div>
-      <p class="note-line" id="clientChoicesMeta"></p>
-      <div class="stat-grid stat-grid-4" id="choicesStats">
-        <div class="stat"><span class="stat-label">קלוריות</span><span class="stat-value num" data-choice-val="kcal">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="kcal"><span class="chip-dot"></span><span data-choice-text="kcal">—</span></span></div>
-        <div class="stat"><span class="stat-label">חלבון</span><span class="stat-value num" data-choice-val="protein">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="protein"><span class="chip-dot"></span><span data-choice-text="protein">—</span></span></div>
-        <div class="stat"><span class="stat-label">פחמימה</span><span class="stat-value num" data-choice-val="carbs">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="carbs"><span class="chip-dot"></span><span data-choice-text="carbs">—</span></span></div>
-        <div class="stat"><span class="stat-label">שומן</span><span class="stat-value num" data-choice-val="fat">—</span><span class="chip chip-neutral stat-chip" data-choice-chip="fat"><span class="chip-dot"></span><span data-choice-text="fat">—</span></span></div>
-      </div>
-      <div class="stack" id="clientChoicesBody"></div>
-    </div>
+    </details>
 
-    <div class="card stack hidden" id="mealsTrackCard">
-      <div>
-        <span class="eyebrow">מילוי עצמי</span>
-        <h2 class="card-title">מעקב ארוחות — מה מילא/ה הלקוח/ה</h2>
+    <details class="card card-fold hidden" id="mealsTrackCard" open>
+      <summary>
+        <div>
+          <span class="eyebrow">מילוי עצמי</span>
+          <h2 class="card-title">מעקב ארוחות — מה מילא/ה הלקוח/ה</h2>
+        </div>
+      </summary>
+      <div class="stack card-fold-body">
+        <p class="note-line">כל שמירה מהקישור האישי נרשמת כאן לפי יום — נפרד ממעקב המדדים שלמטה.</p>
+        <div class="row-flex">
+          <button class="btn btn-ghost btn-sm" id="btnMealsTrackRefresh" type="button">רענן</button>
+        </div>
+        <div class="stack" id="mealsTrackBody"></div>
       </div>
-      <p class="note-line">כל שמירה מהקישור האישי נרשמת כאן לפי יום — נפרד ממעקב המדדים שלמטה.</p>
-      <div class="row-flex">
-        <button class="btn btn-ghost btn-sm" id="btnMealsTrackRefresh" type="button">רענן</button>
-      </div>
-      <div class="stack" id="mealsTrackBody"></div>
-    </div>
+    </details>
 
     <!-- מדידות שהלקוח/ה שלח/ה (23.8.2026, תוספת B) — ממתינות לאישור; אישור → setTrackCell, דחייה → מחיקה -->
-    <div class="card stack hidden" id="measureInboxCard">
-      <div>
-        <span class="eyebrow">מילוי עצמי</span>
-        <h2 class="card-title">מדידות שהלקוח/ה שלח/ה — ממתינות לאישור</h2>
+    <details class="card card-fold hidden" id="measureInboxCard" open>
+      <summary>
+        <div>
+          <span class="eyebrow">מילוי עצמי</span>
+          <h2 class="card-title">מדידות שהלקוח/ה שלח/ה — ממתינות לאישור</h2>
+        </div>
+      </summary>
+      <div class="stack card-fold-body">
+        <p class="lede">אישור מכניס את הערכים לטבלת המעקב שלמטה, בשורה שתבחרי; דחייה מוחקת את המדידה.</p>
+        <div class="stack" id="measureInboxBody"></div>
       </div>
-      <p class="lede">אישור מכניס את הערכים לטבלת המעקב שלמטה, בשורה שתבחרי; דחייה מוחקת את המדידה.</p>
-      <div class="stack" id="measureInboxBody"></div>
-    </div>
+    </details>
 
-    <div class="card stack hidden" id="trackControlsCard">
-      <div>
-        <span class="eyebrow">מעקב</span>
-        <h2 class="card-title" id="trackTitle">טבלת מעקב — —</h2>
+    <details class="card card-fold hidden" id="trackControlsCard">
+      <summary>
+        <div>
+          <span class="eyebrow">מעקב</span>
+          <h2 class="card-title" id="trackTitle">טבלת מעקב — —</h2>
+        </div>
+      </summary>
+      <div class="stack card-fold-body">
+        <div class="fields-grid">
+          <div class="field">
+            <label for="trkStart">תאריך התחלה</label>
+            <input type="date" id="trkStart">
+          </div>
+          <div class="field">
+            <label for="trkUnit">יחידת מעקב</label>
+            <select id="trkUnit">
+              <option value="week">שבועי</option>
+              <option value="month">חודשי</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="trkStep">תדירות</label>
+            <select id="trkStep"></select>
+          </div>
+          <div class="field">
+            <label for="trkHorizon">אורך התוכנית</label>
+            <select id="trkHorizon">
+              <option value="30">חודש</option>
+              <option value="91" selected>3 חודשים</option>
+              <option value="182">חצי שנה</option>
+              <option value="365">שנה</option>
+            </select>
+          </div>
+        </div>
+        <div class="row-flex">
+          <button class="btn" id="btnTrackBuild" type="button">צור / עדכן טבלה</button>
+        </div>
+        <p class="note-line">הנתונים נשמרים לפי תאריך — בנייה מחדש של הטווח שומרת את מה שכבר הוזן בתאריכים שחוזרים גם בטווח החדש, וגם את העמודות שהוספת.</p>
       </div>
-      <div class="fields-grid">
-        <div class="field">
-          <label for="trkStart">תאריך התחלה</label>
-          <input type="date" id="trkStart">
-        </div>
-        <div class="field">
-          <label for="trkUnit">יחידת מעקב</label>
-          <select id="trkUnit">
-            <option value="week">שבועי</option>
-            <option value="month">חודשי</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="trkStep">תדירות</label>
-          <select id="trkStep"></select>
-        </div>
-        <div class="field">
-          <label for="trkHorizon">אורך התוכנית</label>
-          <select id="trkHorizon">
-            <option value="30">חודש</option>
-            <option value="91" selected>3 חודשים</option>
-            <option value="182">חצי שנה</option>
-            <option value="365">שנה</option>
-          </select>
-        </div>
-      </div>
-      <div class="row-flex">
-        <button class="btn" id="btnTrackBuild" type="button">צור / עדכן טבלה</button>
-      </div>
-      <p class="note-line">הנתונים נשמרים לפי תאריך — בנייה מחדש של הטווח שומרת את מה שכבר הוזן בתאריכים שחוזרים גם בטווח החדש, וגם את העמודות שהוספת.</p>
-    </div>
+    </details>
 
-    <div class="card stack hidden" id="trackTableCard">
-      <h2 class="card-title">מדדים לפי תאריך<span class="eyebrow" id="trackRangeNote"></span></h2>
-      <div class="row-flex" id="trackAddColRow">
-        <button class="btn btn-ghost btn-sm" id="btnAddCol" type="button">+ עמודה</button>
-      </div>
-      <div class="row-flex hidden" id="trackNewColRow">
-        <div class="field" style="flex:1 1 220px">
-          <label for="trackNewColName">שם העמודה</label>
-          <input type="text" id="trackNewColName" placeholder="לדוגמה: שעות שינה">
+    <details class="card card-fold hidden" id="trackTableCard" open>
+      <summary><h2 class="card-title">מדדים לפי תאריך<span class="eyebrow" id="trackRangeNote"></span></h2></summary>
+      <div class="stack card-fold-body">
+        <div class="row-flex" id="trackAddColRow">
+          <button class="btn btn-ghost btn-sm" id="btnAddCol" type="button">+ עמודה</button>
         </div>
-        <button class="btn btn-sm" id="btnAddColSave" type="button">הוסף</button>
-        <button class="btn btn-ghost btn-sm" id="btnAddColCancel" type="button">ביטול</button>
+        <div class="row-flex hidden" id="trackNewColRow">
+          <div class="field" style="flex:1 1 220px">
+            <label for="trackNewColName">שם העמודה</label>
+            <input type="text" id="trackNewColName" placeholder="לדוגמה: שעות שינה">
+          </div>
+          <button class="btn btn-sm" id="btnAddColSave" type="button">הוסף</button>
+          <button class="btn btn-ghost btn-sm" id="btnAddColCancel" type="button">ביטול</button>
+        </div>
+        <div class="table-scroll">
+          <table id="trackTable"></table>
+        </div>
+        <p class="note-line">המילוי חופשי — מספר או טקסט קצר. תא שנמחק פשוט לא נשמר, ועמודות ברירת המחדל לא ניתנות להסרה.</p>
       </div>
-      <div class="table-scroll">
-        <table id="trackTable"></table>
-      </div>
-      <p class="note-line">המילוי חופשי — מספר או טקסט קצר. תא שנמחק פשוט לא נשמר, ועמודות ברירת המחדל לא ניתנות להסרה.</p>
-    </div>
+    </details>
 
   </section>
 
   <!-- ===== 5. מאגר מזונות ===== -->
   <section class="tab-panel" id="tab-foods" role="tabpanel" aria-labelledby="tabbtn-foods">
-    <div class="card stack">
-      <div>
-        <h2 class="card-title">מאגר מזונות<span class="eyebrow" id="foodsCount"></span></h2>
-        <p class="lede">ערכים ממוצעים לפי מאגרי מזון (USDA ומאגרים ישראליים). במזון מעובד — תמיד לבדוק את תווית המוצר הספציפי.</p>
-      </div>
+    <!-- מפרט 4 (28.8.2026, בקשת סיוון): כרטיס מתקפל, פתוח כברירת מחדל -->
+    <details class="card card-fold" id="foodsMainCard" open>
+      <summary><h2 class="card-title">מאגר מזונות<span class="eyebrow" id="foodsCount"></span></h2></summary>
+      <div class="stack card-fold-body">
+      <p class="lede">ערכים ממוצעים לפי מאגרי מזון (USDA ומאגרים ישראליים). במזון מעובד — תמיד לבדוק את תווית המוצר הספציפי.</p>
       <div class="field"><label for="foodSearch">חיפוש חופשי</label><input type="text" id="foodSearch" placeholder="שם מזון..."></div>
       <!-- מוסתרים (28.8.2026, בקשת סיוון): מופיע רק כשיש מזונות מוסתרים -->
       <div class="row-flex hidden" id="foodsHiddenRow">
@@ -1151,13 +1187,18 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         </table>
       </div>
       <p class="note-line">עיקרון בדיקה: קלוריות ≈ (חלבון × 4) + (פחמימה × 4) + (שומן × 9). בירקות ובפירות ייתכן פער של עד כ-10% בגלל סיבים תזונתיים — זה תקין.</p>
-    </div>
-
-    <div class="card stack" id="foodAddCard">
-      <div>
-        <span class="eyebrow" id="foodFormEyebrow">מאגר אישי</span>
-        <h2 class="card-title" id="foodFormTitle">הוסף מזון</h2>
       </div>
+    </details>
+
+    <!-- מפרט 4 (28.8.2026, בקשת סיוון): כרטיס מתקפל, סגור כברירת מחדל — startFoodEdit פותח אותו לפני הגלילה -->
+    <details class="card card-fold" id="foodAddCard">
+      <summary>
+        <div>
+          <span class="eyebrow" id="foodFormEyebrow">מאגר אישי</span>
+          <h2 class="card-title" id="foodFormTitle">הוסף מזון</h2>
+        </div>
+      </summary>
+      <div class="stack card-fold-body">
       <p class="lede" id="foodAddLede">מזון שנוסף כאן מסומן בטבלה כ"מותאם" ומופיע בבונה התפריט לצד מזונות המאגר; בחיבור לענן הוא מסתנכרן גם לשאר המכשירים. כל הערכים ל-100 גרם, כפי שנאכל.</p>
       <div class="fields-grid">
         <div class="field"><label for="newFoodName">שם המזון</label><input type="text" id="newFoodName" placeholder="לדוגמה: אורז מלא"></div>
@@ -1192,7 +1233,8 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
       </div>
       <p class="note-line" id="foodAddNote">בלי מנה ביתית — משקל ברירת המחדל בבונה יהיה 100 ג'. אם הקלוריות לא מסתדרות עם חשבון 4/4/9 תופיע התראה, אבל המזון עדיין ייווסף.</p>
       <p class="note-line hidden" id="foodEditNote">עריכה של מזון מהמאגר נשמרת אצלך בלבד ולא משנה את מאגר הבסיס — אפשר לחזור לערכי המקור בכל רגע. שינוי הקטגוריה מעביר את המזון לקבוצה החדשה בכל התצוגות ובבונה.</p>
-    </div>
+      </div>
+    </details>
   </section>
 
   <!-- ===== 6. מוצרים מהסופר ===== -->
@@ -8334,6 +8376,9 @@ $("foodSearch").addEventListener("input", renderFoods);
 var showHiddenFoods = false;
 /* id המזון שנמצא כרגע בעריכה בכרטיס foodAddCard ("" = מצב הוספה) */
 var editingFoodId = "";
+/* מצב פתיחת קבוצות הקטגוריה בטבלה (מפרט 4, 28.8.2026, בקשת סיוון): הכול סגור בכניסה
+   (עמוד קצר ונקי), הבחירות נשמרות לאורך הסשן — המשתנה שורד רינדורים */
+var foodsGroupOpen = {carb:false, protein:false, veg:false, fat:false, snack:false, ready:false};
 $("foodsHiddenToggle").addEventListener("click", function(){
   showHiddenFoods = !showHiddenFoods;
   renderFoods();
@@ -8553,9 +8598,41 @@ function fillQtyCells(tr, f){
   tr.appendChild(el("td","n", round1(Number(f.fat100) * g / 100) + " ג'"));
 }
 
+/* קבוצות קטגוריה בטבלת המזונות (מפרט 4, 28.8.2026, בקשת סיוון): שורת-כותרת תופסת את כל
+   העמודות (colspan), עם שם הקטגוריה, מונה הפריטים בקבוצה וחץ שמסתובב במצב פתוח.
+   לחיצה/Enter/רווח מחליפים את foodsGroupOpen[cat] ומרנדרים מחדש */
+function buildFoodGroupRow(cat, count, open, colspan){
+  var tr = document.createElement("tr");
+  tr.className = "food-group-row";
+  tr.setAttribute("role", "button");
+  tr.setAttribute("tabindex", "0");
+  tr.setAttribute("aria-expanded", open ? "true" : "false");
+  var td = document.createElement("td");
+  td.colSpan = colspan;
+  var head = el("div","food-group-head");
+  head.appendChild(el("span","food-group-label", CAT_LABEL[cat] || cat));
+  head.appendChild(el("span","food-group-count", String(count)));
+  var arrow = el("span","food-group-arrow","▾");
+  arrow.setAttribute("aria-hidden", "true");
+  head.appendChild(arrow);
+  td.appendChild(head);
+  tr.appendChild(td);
+  tr.addEventListener("click", function(){ toggleFoodsGroup(cat); });
+  tr.addEventListener("keydown", function(e){
+    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleFoodsGroup(cat); }
+  });
+  return tr;
+}
+function toggleFoodsGroup(cat){
+  foodsGroupOpen[cat] = !foodsGroupOpen[cat];
+  renderFoods();
+}
+
 /* הטבלה נבנית מהמאגר הממוזג — מזון אישי מסומן בצ'יפ ואפשר למחוק אותו מכאן.
    אבות המזון (generic) לא מוצגים כאן: הם שורות מרשם לבונה, לא ערכים במאגר.
-   28.8.2026: מזון מוסתר יורד מהטבלה ומהספירה, ונחשף רק דרך "הצג מוסתרים" */
+   28.8.2026: מזון מוסתר יורד מהטבלה ומהספירה, ונחשף רק דרך "הצג מוסתרים".
+   28.8.2026 (מפרט 4): השורות מקובצות לפי קטגוריה (BUILDER_CAT_ORDER) — הקיבוץ קורה רק
+   בשיבוץ ל-tbody, בלי לגעת ב-fillValueCells/fillPortionCells/fillQtyCells */
 function renderFoods(){
   var q = ($("foodSearch").value || "").trim();
   var body = $("foodsBody");
@@ -8582,6 +8659,8 @@ function renderFoods(){
     else sortHeads[sh].removeAttribute("aria-sort");
   }
   var count = 0, customTotal = 0;
+  /* דלי שורות פר-קטגוריה (מפרט 4) — מתמלא באותו מעבר על list, ומוצג מקובץ בהמשך */
+  var groupRows = {};
   for (var i=0;i<list.length;i++){
     (function(f){
       var isCustom = isCustomFoodId(f.id);
@@ -8650,8 +8729,33 @@ function renderFoods(){
       if (foodsView === "portions") fillPortionCells(tr, f);
       else if (foodsView === "qty") fillQtyCells(tr, f);
       else fillValueCells(tr, f);
-      body.appendChild(tr);
+      /* מפרט 4: השורה לא נכתבת ל-body ישירות — היא מצטרפת לדלי הקטגוריה שלה,
+         ומוצגת אחרי שורת-הכותרת המתאימה בלולאת הקיבוץ שלמטה */
+      if (!groupRows[f.cat]) groupRows[f.cat] = [];
+      groupRows[f.cat].push(tr);
     })(list[i]);
+  }
+  /* בניית ה-tbody בפועל: שורת-כותרת מתקפלת לכל קטגוריה שיש לה לפחות שורה אחת גלויה,
+     לפי סדר BUILDER_CAT_ORDER (קטגוריה בלתי-צפויה, אם תהיה, מתווספת בסוף בלי לאבד שורות).
+     חיפוש פעיל/צ'יפ קטגוריה פעיל פותחים את הקבוצות הרלוונטיות בלי לגעת ב-foodsGroupOpen —
+     קבוצה בלי אף שורה גלויה (אין תוצאות חיפוש / לא תואמת את הצ'יפ) פשוט לא מוצגת כלל */
+  var catOrder = BUILDER_CAT_ORDER.slice();
+  for (var extraCat in groupRows){
+    if (Object.prototype.hasOwnProperty.call(groupRows, extraCat) && catOrder.indexOf(extraCat) === -1) catOrder.push(extraCat);
+  }
+  var searchActive = q !== "";
+  var filterActive = foodFilter !== "all";
+  var groupColspan = (foodsView === "portions") ? 4 : 7;
+  for (var gi=0;gi<catOrder.length;gi++){
+    var gCat = catOrder[gi];
+    var gRows = groupRows[gCat] || [];
+    if (!gRows.length) continue;
+    var gOpen = filterActive || searchActive || foodsGroupOpen[gCat] === true;
+    body.appendChild(buildFoodGroupRow(gCat, gRows.length, gOpen, groupColspan));
+    for (var ri=0;ri<gRows.length;ri++){
+      gRows[ri].classList.toggle("hidden", !gOpen);
+      body.appendChild(gRows[ri]);
+    }
   }
   /* מצב ריק (QA 20.8.2026): טבלה ריקה בלי הסבר נראית כמו תקלה */
   if (count === 0){
@@ -8800,6 +8904,7 @@ function startFoodEdit(id){
   $("newFoodFree").checked = (f.free === true);
   syncFoodFormMode();
   var card = $("foodAddCard");
+  card.open = true;   /* מפרט 4 (28.8.2026): הכרטיס סגור כברירת מחדל — עריכה חייבת לפתוח אותו לפני הגלילה */
   if (card.scrollIntoView) card.scrollIntoView({block:"start", behavior:"smooth"});
   $("newFoodName").focus();
 }
