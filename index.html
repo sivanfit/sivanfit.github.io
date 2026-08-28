@@ -576,6 +576,30 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
 .meas-inbox-head{font-weight:700}
 .meas-warn{color:var(--warn); font-size:12.5px; font-weight:700}
 .meas-target{font:inherit; font-size:14px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface); color:var(--text)}
+/* מעקב ארוחות שבועי (28.8.2026, בקשת סיוון): ניווט שבועות + רצועת ימים + ארוחות היום הנבחר,
+   בתוך mealsTrackCard — מחליף את רשימת הימים השטוחה הישנה */
+.mtw-nav{justify-content:space-between}
+.mtw-range{font-weight:800; font-size:13px; color:var(--text-muted)}
+.mtw-strip{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px}
+.mtw-chip{
+  appearance:none; font:inherit; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:7px 2px 8px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  background:var(--surface); color:var(--text-soft); transition:background .15s, color .15s, border-color .15s;
+}
+.mtw-chip-name{font-size:11px; font-weight:700; white-space:nowrap}
+.mtw-chip-date{font-size:10.5px}
+.mtw-chip-dot{width:5px; height:5px; border-radius:50%; background:var(--accent-deep); opacity:0}
+.mtw-chip.has{color:var(--text)}
+.mtw-chip.has .mtw-chip-dot{opacity:1}
+.mtw-chip.on{background:var(--primary-deep); border-color:var(--primary-deep); color:var(--on-deep)}
+.mtw-chip.on .mtw-chip-dot{background:var(--on-deep)}
+.mtw-chip:disabled{opacity:.4; cursor:not-allowed}
+.mtw-day-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.mtw-day-title{font-family:var(--serif); font-size:15px; font-weight:700}
+@media (max-width:719px){
+  .mtw-chip-name{font-size:10px}
+  .mtw-chip-date{font-size:9px}
+}
 /* ==== SAND-SERIF-END ==== */
 
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
@@ -2644,6 +2668,33 @@ function daysBetweenISO(fromISO, toISO){
   var a = parseISOParts(fromISO), b = parseISOParts(toISO);
   if (!a || !b) return null;
   return daysFromCivil(b.y, b.m, b.d) - daysFromCivil(a.y, a.m, a.d);
+}
+
+/* ===== שבוע ותצוגה שבועית (28.8.2026) — מיד אחרי daysBetweenISO, על אותם עזרים גרגוריאניים =====
+   יום-בשבוע / יום ראשון של השבוע / רשימת 7 ימים — לרצועת "מעקב ארוחות" השבועית בדשבורד */
+
+/* יום בשבוע לפי הלוח הגרגוריאני העצמאי: 0=ראשון ... 6=שבת; קלט פסול => -1.
+   1970-01-01 (z=0 ב-daysFromCivil) היה יום חמישי — ומכאן ההיסט הקבוע +4 בנוסחה */
+function weekdayOfISO(iso){
+  var p = parseISOParts(iso);
+  if (!p) return -1;
+  var z = daysFromCivil(p.y, p.m, p.d);
+  return ((z + 4) % 7 + 7) % 7;
+}
+
+/* ה-ISO של יום ראשון בשבוע שמכיל את iso (מחזיר את iso עצמו אם הוא כבר יום ראשון); קלט פסול => "" */
+function sundayOfISO(iso){
+  var wd = weekdayOfISO(iso);
+  if (wd < 0) return "";
+  return addDaysISO(iso, -wd);
+}
+
+/* מערך 7 תאריכי ISO רצופים החל מ-sundayISO (ראשון...שבת); קלט פסול => [] */
+function weekISOList(sundayISO){
+  if (!parseISOParts(sundayISO)) return [];
+  var out = [];
+  for (var i=0;i<7;i++) out.push(addDaysISO(sundayISO, i));
+  return out;
 }
 
 /* מצב המנוי מול תאריך היום; אין מנוי מוגדר / קלט פגום → null */
@@ -7616,8 +7667,12 @@ function rejectMeasurement(item){
   });
 }
 
-/* ---------- מעקב ארוחות: היסטוריית המילויים היומית של הלקוח/ה (responses/{token}/days) ---------- */
+/* ---------- מעקב ארוחות: תצוגה שבועית של המילויים היומיים (responses/{token}/days) ----------
+   (28.8.2026, בקשת סיוון: רצועת ימים ראשון-שבת + ניווט שבועות אחורה, כמו בפורטל —
+   במקום רשימה שטוחה עם פירוט ב-tooltip; לחיצה על יום מציגה את הארוחות המלאות שלו) */
 var mealsTrackToken = null, mealsTrackDays = null, mealsTrackLoading = false;
+var mtwWeekSunday = "", mtwDaySel = "";
+var MTW_DAY_NAMES = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
 
 /* קריאה-בלבד למנהלת מחוברת עם קישור פעיל; שליפה רק כשהטוקן מתחלף או ברענון יזום */
 function refreshMealsTrack(force){
@@ -7629,14 +7684,23 @@ function refreshMealsTrack(force){
     card.classList.add("hidden");
     mealsTrackToken = null;
     mealsTrackDays = null;
+    mtwWeekSunday = "";
+    mtwDaySel = "";
     return;
   }
   card.classList.remove("hidden");
   if (!force && token === mealsTrackToken){ renderMealsTrack(); return; }
   if (mealsTrackLoading) return;
+  /* טוקן חדש (לקוח/ה אחר/ת או כניסה ראשונה) מאפס גם את בחירת השבוע/היום;
+     רענון יזום/חי על אותו טוקן משאיר את מה שסיוון כבר בוחרת לצפות בו */
+  var tokenChanged = token !== mealsTrackToken;
   mealsTrackLoading = true;
   mealsTrackToken = token;
   mealsTrackDays = null;
+  if (tokenChanged){
+    mtwWeekSunday = "";
+    mtwDaySel = "";
+  }
   renderMealsTrack();
   /* 23.8.2026 (אימות חי): מיון יורד לפי documentId דרש אינדקס ב-Firestore ונכשל בשקט מאז 17.8 —
      עכשיו מיון עולה מהיום ה-45 האחרון (האינדקס המובנה, startAt על מזהה המסמך) והיפוך ב-JS */
@@ -7662,6 +7726,187 @@ function refreshMealsTrack(force){
     });
 }
 
+/* "23.8" בלי אפסים מובילים ובלי שנה — לרצועת הימים ולתווית הטווח */
+function mtwShortDate(iso){
+  var p = parseISOParts(iso);
+  return p ? (p.d + "." + p.m) : "";
+}
+
+/* מפת יום->רשומה מתוך mealsTrackDays, לבדיקות "יש נתונים" מהירות */
+function mtwByDayMap(){
+  var map = {};
+  if (mealsTrackDays){
+    for (var i=0;i<mealsTrackDays.length;i++) map[mealsTrackDays[i].day] = mealsTrackDays[i];
+  }
+  return map;
+}
+
+/* היום העדכני ביותר עם נתונים בשבוע נתון (סריקה משבת אחורה לראשון); אין נתונים בשבוע כלל => "" */
+function mtwLatestDayWithData(weekSunday, byDay){
+  var week = weekISOList(weekSunday), i;
+  for (i=week.length-1;i>=0;i--){
+    if (byDay[week[i]]) return week[i];
+  }
+  return "";
+}
+
+/* ברירת המחדל ליום הנבחר בטעינה ראשונה/החלפת לקוח/ה: היום אם יש בו נתונים,
+   אחרת היום העדכני ביותר עם נתונים באותו שבוע (אם יש), אחרת נשארים על היום עצמו */
+function mtwDefaultDaySel(weekSunday, byDay){
+  var today = todayISO();
+  if (byDay[today]) return today;
+  return mtwLatestDayWithData(weekSunday, byDay) || today;
+}
+
+/* מעבר שבוע (prev/next): עוברים לשבוע הרצוי ובוחרים בו את היום העדכני ביותר עם נתונים;
+   בשבוע ריק לגמרי — בלי בחירה (מוצגת הנחיה לבחור יום מהרצועה) */
+function mtwGoWeek(deltaDays){
+  mtwWeekSunday = addDaysISO(mtwWeekSunday, deltaDays);
+  mtwDaySel = mtwLatestDayWithData(mtwWeekSunday, mtwByDayMap());
+  renderMealsTrack();
+}
+
+function mtwRenderNav(){
+  var row = el("div","row-flex mtw-nav");
+  var minWeek = sundayOfISO(addDaysISO(todayISO(), -45));
+  var curWeek = sundayOfISO(todayISO());
+  var week = weekISOList(mtwWeekSunday);
+
+  var prev = el("button","btn btn-ghost btn-sm","‹ שבוע קודם");
+  prev.type = "button";
+  prev.id = "mtwPrev";
+  prev.disabled = (mtwWeekSunday <= minWeek);
+  prev.addEventListener("click", function(){ mtwGoWeek(-7); });
+  row.appendChild(prev);
+
+  var range = el("span","mtw-range", week.length ? (mtwShortDate(week[0]) + "–" + mtwShortDate(week[6])) : "");
+  range.id = "mtwRange";
+  row.appendChild(range);
+
+  var next = el("button","btn btn-ghost btn-sm","שבוע הבא ›");
+  next.type = "button";
+  next.id = "mtwNext";
+  next.disabled = (mtwWeekSunday >= curWeek);
+  next.addEventListener("click", function(){ mtwGoWeek(7); });
+  row.appendChild(next);
+
+  return row;
+}
+
+function mtwRenderStrip(byDay){
+  var wrap = el("div","mtw-strip");
+  wrap.id = "mtwStrip";
+  var week = weekISOList(mtwWeekSunday);
+  var today = todayISO();
+  for (var i=0;i<week.length;i++){
+    var iso = week[i];
+    var has = !!byDay[iso];
+    var sel = (iso === mtwDaySel);
+    var future = iso > today;
+    var btn = el("button","mtw-chip" + (has ? " has" : "") + (sel ? " on" : ""));
+    btn.type = "button";
+    btn.setAttribute("data-iso", iso);
+    btn.setAttribute("aria-pressed", sel ? "true" : "false");
+    btn.disabled = future;
+    btn.appendChild(el("span","mtw-chip-name", MTW_DAY_NAMES[i]));
+    btn.appendChild(el("span","mtw-chip-date", mtwShortDate(iso)));
+    btn.appendChild(el("span","mtw-chip-dot"));
+    btn.addEventListener("click", function(){
+      mtwDaySel = this.getAttribute("data-iso");
+      renderMealsTrack();
+    });
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+
+/* אקורדיון ארוחה בתבנית הקיימת (renderClientChoices — details.choice-fold/.choice-meal),
+   משוכפל כאן כי המקור מציג את המסמך החי (clientResponseCache) והתצוגה השבועית
+   מציגה יום ספציפי מההיסטוריה (mealsTrackDays); צ'יפ הקק"ל ממחזר את .mt-meal/.mt-meal.over */
+function mtwMealFold(m){
+  var box = document.createElement("details");
+  box.className = "choice-meal choice-fold";
+  var head = document.createElement("summary");
+  head.className = "choice-meal-head";
+  head.appendChild(el("b", null, m.name));
+  var bs = mealBudgetStatus(m.kcal, m.budget);
+  var kcalTxt = m.kcal.toLocaleString("he-IL") + (bs ? ("/" + bs.budget.toLocaleString("he-IL")) : "") + " קק\"ל";
+  head.appendChild(el("span","mt-meal" + (bs && bs.over ? " over" : ""), kcalTxt));
+  box.appendChild(head);
+  if (m.rows.length === 0){
+    box.appendChild(el("div","choice-row muted","— עדיין אין בחירות בארוחה הזו —"));
+  }
+  for (var j=0;j<m.rows.length;j++){
+    var r = m.rows[j];
+    var catPrefix = (r.cat && CAT_BUDGET_LABELS[r.cat]) ? (CAT_BUDGET_LABELS[r.cat] + ": ") : "";
+    var amount = r.free ? "חופשי" : (r.grams.toLocaleString("he-IL") + " ג'");
+    var line = catPrefix + r.name + " · " + amount + " · " + r.kcal.toLocaleString("he-IL") + " קק\"ל";
+    box.appendChild(el("div","choice-row", line));
+  }
+  return box;
+}
+
+function mtwRenderDayBody(byDay){
+  var wrap = el("div","stack");
+  wrap.id = "mtwDayBody";
+  if (!mtwDaySel){
+    wrap.appendChild(el("p","lede","בשבוע הזה אין מילויים שמורים — אפשר לבחור יום מהרצועה שלמעלה."));
+    return wrap;
+  }
+  var iso = mtwDaySel;
+  var wd = weekdayOfISO(iso);
+  var head = el("div","mtw-day-head");
+  head.appendChild(el("span","mtw-day-title", (wd > -1 ? ("יום " + MTW_DAY_NAMES[wd] + " · ") : "") + mtwShortDate(iso)));
+  if (iso === todayISO()) head.appendChild(el("span","chip chip-ok","היום"));
+  wrap.appendChild(head);
+
+  var entry = byDay[iso];
+  if (!entry){
+    wrap.appendChild(el("p","lede","לא נשמר מילוי ביום הזה."));
+    return wrap;
+  }
+
+  var totals = {kcal:0, protein:0, carbs:0, fat:0}, i;
+  for (i=0;i<entry.meals.length;i++){
+    var m = entry.meals[i];
+    totals.kcal += m.kcal;
+    totals.protein += m.protein;
+    totals.carbs += m.carbs;
+    totals.fat += m.fat;
+    wrap.appendChild(mtwMealFold(m));
+  }
+  totals.protein = Math.round(totals.protein);
+  totals.carbs = Math.round(totals.carbs);
+  totals.fat = Math.round(totals.fat);
+
+  var sumTxt = "סה\"כ היום: " + totals.kcal.toLocaleString("he-IL") + " קק\"ל · חלבון " +
+    totals.protein.toLocaleString("he-IL") + " ג' · פחמימה " + totals.carbs.toLocaleString("he-IL") +
+    " ג' · שומן " + totals.fat.toLocaleString("he-IL") + " ג'";
+  wrap.appendChild(el("p","lede", sumTxt));
+
+  var c = getActiveClient(null);
+  if (c && hasAnyTarget(c.targets)){
+    var st = targetsStatus(totals, c.targets);
+    var labels = {kcal:"קלוריות", protein:"חלבון", carbs:"פחמימה", fat:"שומן"};
+    var chipsRow = el("div","row-flex");
+    for (i=0;i<st.length;i++){
+      var s = st[i];
+      var chip = el("span","chip chip-neutral stat-chip");
+      chip.appendChild(el("span","chip-dot"));
+      var txtEl = el("span");
+      chip.appendChild(txtEl);
+      /* setChip קובע גם class לפי הרמה וגם textContent=s.text — מוסיפים את תווית
+         המדד ("קלוריות: ") אחרי הקריאה, אחרת היא נדרסת בחזרה ל-s.text בלבד */
+      setChip(chip, txtEl, s);
+      txtEl.textContent = labels[s.key] + ": " + txtEl.textContent;
+      chipsRow.appendChild(chip);
+    }
+    wrap.appendChild(chipsRow);
+  }
+
+  return wrap;
+}
+
 function renderMealsTrack(){
   var body = $("mealsTrackBody");
   if (!body) return;
@@ -7674,25 +7919,14 @@ function renderMealsTrack(){
     body.appendChild(el("p","lede","עדיין אין מילויים — ברגע שהלקוח/ה תשמור בחירות בקישור האישי, הן יופיעו כאן לפי יום."));
     return;
   }
-  for (var i=0;i<mealsTrackDays.length;i++){
-    var d = mealsTrackDays[i];
-    var row = el("div","mt-day");
-    row.appendChild(el("div","mt-date", isoDateText(d.day)));
-    var mealsBox = el("div","mt-meals");
-    for (var j=0;j<d.meals.length;j++){
-      var m = d.meals[j];
-      var bs = mealBudgetStatus(m.kcal, m.budget);
-      var txt = m.name + " · " + m.kcal.toLocaleString("he-IL") + (bs ? ("/" + bs.budget.toLocaleString("he-IL")) : "") + " קק\"ל";
-      var chip = el("span","mt-meal" + (bs && bs.over ? " over" : ""), txt);
-      chip.title = m.rows.map(function(r){
-        var cp = (r.cat && CAT_BUDGET_LABELS[r.cat]) ? (CAT_BUDGET_LABELS[r.cat] + ": ") : "";
-        return r.free ? (cp + r.name + " (חופשי)") : (cp + r.name + " " + r.grams + " ג'");
-      }).join(" · ");
-      mealsBox.appendChild(chip);
-    }
-    row.appendChild(mealsBox);
-    body.appendChild(row);
+  var byDay = mtwByDayMap();
+  if (!mtwWeekSunday){
+    mtwWeekSunday = sundayOfISO(todayISO());
+    mtwDaySel = mtwDefaultDaySel(mtwWeekSunday, byDay);
   }
+  body.appendChild(mtwRenderNav());
+  body.appendChild(mtwRenderStrip(byDay));
+  body.appendChild(mtwRenderDayBody(byDay));
 }
 
 $("btnMealsTrackRefresh").addEventListener("click", function(){ refreshMealsTrack(true); });
