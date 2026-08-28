@@ -614,6 +614,9 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
 .food-free-line{display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; cursor:pointer}
 .food-free-line input{width:18px; height:18px; accent-color:var(--primary-deep); cursor:pointer}
 #foodAddCard.is-editing{border-color:var(--accent-deep)}
+/* מוצר → מזון אישי: כפתור גלוי בשורת המוצר + בורר קטגוריה בפירוט (28.8.2026, בקשת סיוון) */
+.prod-add-cell{text-align:center; white-space:nowrap}
+.prod-cat-pick{display:inline-flex; align-items:center; gap:6px}
 /* ==== SAND-SERIF-END ==== */
 
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
@@ -1213,6 +1216,7 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
             <th class="n sortable" data-sort="carbs100" tabindex="0" role="button" aria-label="מיון לפי פחמימה">פחמימה<span class="sort-ind"></span></th>
             <th class="n sortable" data-sort="fat100" tabindex="0" role="button" aria-label="מיון לפי שומן">שומן<span class="sort-ind"></span></th>
             <th class="n sortable" data-sort="kcal_portion" tabindex="0" role="button" aria-label="מיון לפי קלוריות למנה">קלוריות למנה<span class="sort-ind"></span></th>
+            <th aria-label="הוספה למאגר המזונות"></th>
           </tr></thead>
           <tbody id="prodBody"></tbody>
         </table>
@@ -1971,6 +1975,19 @@ function sortProducts(list, key, dir){
 function nextSortDir(currentKey, currentDir, clickedKey){
   if (currentKey !== clickedKey) return "asc";
   return currentDir === "asc" ? "desc" : "asc";
+}
+
+/* מוצר → מזון אישי: בניית השם שנשמר במאגר ובדיקת קיום מדויקת מול activeFoods
+   (28.8.2026, בקשת סיוון: כפתור "➕ למאגר" גלוי בשורת המוצר + מניעת כפילויות) */
+function productFoodName(p){
+  return p.name + " — " + p.brand;
+}
+function isProductInFoods(list, p){
+  var name = productFoodName(p);
+  for (var i=0;i<list.length;i++){
+    if (list[i].name === name) return true;
+  }
+  return false;
 }
 
 var CAT_LABEL = {carb:"פחמימה", protein:"חלבון", veg:"ירק", fat:"שומן", snack:"ביניים", ready:"מוכן ובחוץ"};
@@ -8682,6 +8699,10 @@ function saveCustomFood(raw, onBadField){
   var cf = readCustomFoods();
   var taken = activeFoods().byId;
   while (Object.prototype.hasOwnProperty.call(taken, "u" + cf.nextId)) cf.nextId = cf.nextId + 1;
+  /* 28.8.2026 (בקשת סיוון, עקביות עם מסלול העריכה): updatedAt לצד addedAt כבר ביצירה —
+     כך פריט חדש מוגן באותו כלל "החדש גובר" של mergeCustomFoodLists מהרגע הראשון,
+     ולא רק אחרי עריכה ראשונה דרך saveCustomFoodEdit */
+  var now = new Date().toISOString();
   var food = {
     id: "u" + cf.nextId,
     name: name,
@@ -8692,7 +8713,8 @@ function saveCustomFood(raw, onBadField){
     fat100: vals.fat100,
     portion: String((raw.portion === undefined || raw.portion === null) ? "" : raw.portion).trim(),
     grams: (isFinite(grams) && grams > 0) ? grams : 100,
-    addedAt: new Date().toISOString()
+    addedAt: now,
+    updatedAt: now
   };
   cf.foods.push(food);
   cf.nextId = cf.nextId + 1;
@@ -8934,23 +8956,23 @@ function productFoodCat(category){
   return "ready";
 }
 
-/* "הוסף למאגר שלי" — מעביר מוצר סופר למזונות המותאמים דרך אותו מסלול שמירה קיים */
-function addProductToMyFoods(p){
-  var wantedName = p.name + " — " + p.brand;
-  var existing = activeFoods().list;
-  for (var i=0;i<existing.length;i++){
-    if (existing[i].name === wantedName){ toast("המוצר כבר במאגר שלך: " + wantedName); return; }
-  }
+/* "הוסף למאגר שלי" — מעביר מוצר סופר למזונות המותאמים דרך אותו מסלול שמירה קיים.
+   28.8.2026 (בקשת סיוון): cat אופציונלי (מבורר הקטגוריה בשורת הפירוט) — בלעדיו נופל
+   לניחוש productFoodCat, בדיוק כמו קודם; קריאה יחידה ל-saveCustomFood נשארה (הפין נועל 4). */
+function addProductToMyFoods(p, cat){
+  var wantedName = productFoodName(p);
+  if (isProductInFoods(activeFoods().list, p)){ toast("המוצר כבר במאגר המזונות"); return; }
   var food = saveCustomFood({
     name: wantedName,
-    cat: productFoodCat(p.category),
+    cat: cat || productFoodCat(p.category),
     kcal100: p.kcal100, protein100: p.protein100, carbs100: p.carbs100, fat100: p.fat100,
     portion: p.portion_desc, grams: p.portion_grams
   }, null);
   if (!food) return;
   renderFoods();
+  renderProducts();
   rebuild();
-  toast("נוסף למאגר שלך וזמין בבונה: " + wantedName);
+  toast("נוסף למאגר המזונות ✓ — אפשר לערוך אותו בטאב מאגר מזונות");
 }
 
 function renderProducts(){
@@ -8965,9 +8987,12 @@ function renderProducts(){
 
   var body = $("prodBody");
   body.innerHTML = "";
+  /* מצב "כבר במאגר" (28.8.2026) — נקרא פעם אחת לכל הרינדור, לא פר-שורה */
+  var myFoodsList = activeFoods().list;
   for (var i=0;i<rows.length;i++){
     (function(p, idx){
       var key = p.name + "|" + p.brand;
+      var already = isProductInFoods(myFoodsList, p);
       var tr = document.createElement("tr");
       tr.className = "prod-row" + (prodOpen[key] ? " is-open" : "");
       tr.setAttribute("tabindex","0");
@@ -8993,11 +9018,25 @@ function renderProducts(){
       tr.appendChild(el("td","n", p.fat100 + " ג'"));
       tr.appendChild(el("td","n", String(p.kcal_portion)));
 
+      /* כפתור גלוי בשורה הראשית (28.8.2026, בקשת סיוון): לא מרחיב את הפירוט (stopPropagation),
+         מוסיף עם קטגוריית ברירת המחדל של המוצר; "במאגר ✓" מושבת כשכבר נוסף */
+      var tdAdd = el("td","prod-add-cell");
+      var addMini = el("button","btn btn-quiet btn-sm prod-add-mini", already ? "במאגר ✓" : "➕ למאגר");
+      addMini.type = "button";
+      addMini.disabled = already;
+      addMini.title = already ? "המוצר כבר במאגר המזונות שלך" : "הוספה מהירה למאגר המזונות שלך";
+      addMini.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        addProductToMyFoods(p);
+      });
+      tdAdd.appendChild(addMini);
+      tr.appendChild(tdAdd);
+
       var detail = document.createElement("tr");
       detail.className = "prod-detail";
       if (!prodOpen[key]) detail.classList.add("hidden");
       var dtd = document.createElement("td");
-      dtd.setAttribute("colspan","8");
+      dtd.setAttribute("colspan","9");
       var grid = el("div","prod-detail-grid");
       function pair(label, value){
         var s = el("span");
@@ -9010,13 +9049,32 @@ function renderProducts(){
       pair("חלבון למנה", p.protein_portion + " ג'");
       pair("פחמימה למנה", p.carbs_portion + " ג'");
       pair("שומן למנה", p.fat_portion + " ג'");
-      /* גשר לבונה (QA 20.8.2026): המוצר נוסף כמזון מותאם וזמין מיד בחיפוש של הבונה */
-      var addBtn = el("button","btn btn-sm","הוסף למאגר שלי");
+      /* גשר לבונה (QA 20.8.2026): המוצר נוסף כמזון מותאם וזמין מיד בחיפוש של הבונה.
+         28.8.2026 (בקשת סיוון): בורר קטגוריה ליד הכפתור — מאותחל לניחוש, ניתן לשינוי;
+         הכפתור מוסיף עם הקטגוריה הנבחרת ועובר ל"במאגר ✓" מושבת כשכבר נוסף */
+      var catPick = el("span","prod-cat-pick");
+      catPick.appendChild(el("span","lbl","קטגוריה:"));
+      var catSelect = document.createElement("select");
+      catSelect.className = "prod-cat-select";
+      catSelect.setAttribute("aria-label", "קטגוריית המזון להוספה");
+      for (var pci=0; pci<BUILDER_CAT_ORDER.length; pci++){
+        var pco = document.createElement("option");
+        pco.value = BUILDER_CAT_ORDER[pci];
+        pco.textContent = CAT_LABEL[BUILDER_CAT_ORDER[pci]];
+        catSelect.appendChild(pco);
+      }
+      catSelect.value = productFoodCat(p.category);
+      catSelect.disabled = already;
+      catPick.appendChild(catSelect);
+      grid.appendChild(catPick);
+
+      var addBtn = el("button","btn btn-sm", already ? "במאגר ✓" : "הוסף למאגר שלי");
       addBtn.type = "button";
-      addBtn.title = "המוצר יתווסף כמזון מותאם ויופיע בבורר של בונה התפריט";
+      addBtn.disabled = already;
+      addBtn.title = already ? "המוצר כבר במאגר המזונות שלך" : "המוצר יתווסף כמזון מותאם ויופיע בבורר של בונה התפריט";
       addBtn.addEventListener("click", function(ev){
         ev.stopPropagation();
-        addProductToMyFoods(p);
+        addProductToMyFoods(p, catSelect.value);
       });
       grid.appendChild(addBtn);
       if (p.source){
@@ -9050,7 +9108,7 @@ function renderProducts(){
   if (rows.length === 0){
     var emptyTr = document.createElement("tr");
     var emptyTd = document.createElement("td");
-    emptyTd.setAttribute("colspan","8");
+    emptyTd.setAttribute("colspan","9");
     emptyTd.appendChild(el("span","lede","לא נמצאו מוצרים מתאימים לחיפוש — נסי שם אחר או קטגוריה אחרת."));
     emptyTr.appendChild(emptyTd);
     body.appendChild(emptyTr);
