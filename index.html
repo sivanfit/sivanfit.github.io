@@ -600,6 +600,20 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
   .mtw-chip-name{font-size:10px}
   .mtw-chip-date{font-size:9px}
 }
+/* ניהול מאגר המזונות (28.8.2026, בקשת סיוון): הסתרה, עריכה מלאה והעברת קטגוריה */
+.mini-act{
+  appearance:none; font:inherit; font-size:12px; font-weight:800; line-height:1.4; cursor:pointer;
+  border:1px solid var(--border); background:var(--surface); color:var(--text-soft);
+  border-radius:8px; padding:1px 7px; margin-inline-start:6px; white-space:nowrap;
+}
+.mini-act:hover{border-color:var(--accent-deep); color:var(--accent-deep); background:var(--surface-2)}
+.food-off > td{opacity:.55}
+.food-off:hover > td{opacity:1}
+#foodsHiddenRow{align-items:center}
+#foodsHiddenNote{border:0; padding:0; flex:1 1 220px; min-width:0}
+.food-free-line{display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; cursor:pointer}
+.food-free-line input{width:18px; height:18px; accent-color:var(--primary-deep); cursor:pointer}
+#foodAddCard.is-editing{border-color:var(--accent-deep)}
 /* ==== SAND-SERIF-END ==== */
 
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
@@ -1088,6 +1102,11 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <p class="lede">ערכים ממוצעים לפי מאגרי מזון (USDA ומאגרים ישראליים). במזון מעובד — תמיד לבדוק את תווית המוצר הספציפי.</p>
       </div>
       <div class="field"><label for="foodSearch">חיפוש חופשי</label><input type="text" id="foodSearch" placeholder="שם מזון..."></div>
+      <!-- מוסתרים (28.8.2026, בקשת סיוון): מופיע רק כשיש מזונות מוסתרים -->
+      <div class="row-flex hidden" id="foodsHiddenRow">
+        <button class="btn btn-quiet btn-sm" id="foodsHiddenToggle" type="button" aria-pressed="false">הצג מוסתרים</button>
+        <span class="note-line" id="foodsHiddenNote">מזון מוסתר לא מופיע במאגר, בחיפוש של הבונה ובאפליקציה של הלקוחה — אבל תפריטים שכבר משתמשים בו ממשיכים לעבוד.</span>
+      </div>
       <div class="row-flex" id="foodChips"></div>
       <div class="row-flex">
         <div class="seg" id="foodsViewSeg">
@@ -1133,10 +1152,10 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
 
     <div class="card stack" id="foodAddCard">
       <div>
-        <span class="eyebrow">מאגר אישי</span>
-        <h2 class="card-title">הוסף מזון</h2>
+        <span class="eyebrow" id="foodFormEyebrow">מאגר אישי</span>
+        <h2 class="card-title" id="foodFormTitle">הוסף מזון</h2>
       </div>
-      <p class="lede">מזון שנוסף כאן מסומן בטבלה כ"מותאם" ומופיע בבונה התפריט לצד מזונות המאגר; בחיבור לענן הוא מסתנכרן גם לשאר המכשירים. כל הערכים ל-100 גרם, כפי שנאכל.</p>
+      <p class="lede" id="foodAddLede">מזון שנוסף כאן מסומן בטבלה כ"מותאם" ומופיע בבונה התפריט לצד מזונות המאגר; בחיבור לענן הוא מסתנכרן גם לשאר המכשירים. כל הערכים ל-100 גרם, כפי שנאכל.</p>
       <div class="fields-grid">
         <div class="field"><label for="newFoodName">שם המזון</label><input type="text" id="newFoodName" placeholder="לדוגמה: אורז מלא"></div>
         <div class="field">
@@ -1157,10 +1176,19 @@ input[type="text"]:hover,input[type="number"]:hover,input[type="date"]:hover,sel
         <div class="field"><label for="newFoodPortion">מנה ביתית (רשות)</label><input type="text" id="newFoodPortion" placeholder="לדוגמה: כוס מבושל"></div>
         <div class="field"><label for="newFoodGrams">גרמים למנה (רשות)</label><input type="number" id="newFoodGrams" min="1" max="2000" step="5" placeholder="100"></div>
       </div>
+      <!-- ירק חופשי (28.8.2026): רק במצב עריכה, וכשהקטגוריה היא "ירק" -->
+      <label class="food-free-line hidden" id="newFoodFreeRow" for="newFoodFree">
+        <input type="checkbox" id="newFoodFree">
+        <span>ירק חופשי — לא נספר</span>
+      </label>
       <div class="row-flex">
         <button class="btn" id="btnAddFood" type="button">הוסף</button>
+        <button class="btn hidden" id="btnSaveFoodEdit" type="button">שמירת שינויים</button>
+        <button class="btn btn-quiet hidden" id="btnCancelFoodEdit" type="button">ביטול</button>
+        <button class="btn btn-ghost btn-sm hidden" id="btnResetFoodEdit" type="button">שחזרי לערכי המקור</button>
       </div>
-      <p class="note-line">בלי מנה ביתית — משקל ברירת המחדל בבונה יהיה 100 ג'. אם הקלוריות לא מסתדרות עם חשבון 4/4/9 תופיע התראה, אבל המזון עדיין ייווסף.</p>
+      <p class="note-line" id="foodAddNote">בלי מנה ביתית — משקל ברירת המחדל בבונה יהיה 100 ג'. אם הקלוריות לא מסתדרות עם חשבון 4/4/9 תופיע התראה, אבל המזון עדיין ייווסף.</p>
+      <p class="note-line hidden" id="foodEditNote">עריכה של מזון מהמאגר נשמרת אצלך בלבד ולא משנה את מאגר הבסיס — אפשר לחזור לערכי המקור בכל רגע. שינוי הקטגוריה מעביר את המזון לקבוצה החדשה בכל התצוגות ובבונה.</p>
     </div>
   </section>
 
@@ -2042,6 +2070,154 @@ function mergeFoods(baseList, customList){
   return {list:list, byId:byId};
 }
 
+/* ===== שכבת ההתאמות של סיוון על מאגר הבסיס (28.8.2026) =====
+   מאגר הבסיס (FOODS) מוזרק מ-ידע/09 ואסור לגעת בו בזמן ריצה, ולכן הסתרה ועריכה של
+   מזון-בסיס נשמרות כשכבה נפרדת לפי id: {hidden, patch, updatedAt}. מזון מוסתר נשאר
+   ב-byId עם דגל hidden — תפריטים קיימים שמצביעים עליו ממשיכים לחשב ולהציג כרגיל,
+   הוא רק נעלם מהרשימות, מהחיפושים ומהקטלוג. */
+var FOOD_PATCH_NUM_FIELDS = ["kcal100","protein100","carbs100","fat100"];
+
+/* patch = תמונה מלאה של השדות הניתנים לעריכה. חסר שדה חובה או ערך פסול ⇒ null
+   (הכניסה עצמה שורדת, ואז היא נושאת רק את דגל ההסתרה) */
+function normalizeFoodPatch(raw){
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  var name = (typeof raw.name === "string") ? raw.name.trim() : "";
+  if (name === "") return null;
+  var cat = (typeof raw.cat === "string") ? raw.cat : "";
+  if (!Object.prototype.hasOwnProperty.call(CAT_LABEL, cat)) return null;
+  var out = {name:name, cat:cat}, i, v;
+  for (i=0;i<FOOD_PATCH_NUM_FIELDS.length;i++){
+    v = Number(raw[FOOD_PATCH_NUM_FIELDS[i]]);
+    if (raw[FOOD_PATCH_NUM_FIELDS[i]] === null || raw[FOOD_PATCH_NUM_FIELDS[i]] === undefined) return null;
+    if (typeof raw[FOOD_PATCH_NUM_FIELDS[i]] === "string" && raw[FOOD_PATCH_NUM_FIELDS[i]] === "") return null;
+    if (!isFinite(v) || v < 0) return null;
+    out[FOOD_PATCH_NUM_FIELDS[i]] = v;
+  }
+  out.portion = (typeof raw.portion === "string") ? raw.portion.trim() : "";
+  var g = Number(raw.grams);
+  out.grams = (isFinite(g) && g > 0) ? g : 100;
+  out.free = raw.free === true;
+  return out;
+}
+
+/* כניסה אחת במפה. אובייקט תקין תמיד שורד — גם כשהוא ניטרלי (hidden:false, patch:null):
+   כניסה ניטרלית עם updatedAt טרי היא ה"מצבה" שמונעת מהענן להחזיר patch שנמחק */
+function normalizeFoodOverrideEntry(raw){
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return {
+    hidden: raw.hidden === true,
+    patch: normalizeFoodPatch(raw.patch),
+    updatedAt: (typeof raw.updatedAt === "string") ? raw.updatedAt : ""
+  };
+}
+
+/* {version:1, items:{"<foodId>": entry}} — קריאה סלחנית מכל מבנה */
+function normalizeFoodOverrides(raw){
+  var src = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+  var items = (src.items && typeof src.items === "object" && !Array.isArray(src.items)) ? src.items : {};
+  var out = {}, id, entry;
+  for (id in items){
+    if (!Object.prototype.hasOwnProperty.call(items, id)) continue;
+    if (id === "") continue;
+    entry = normalizeFoodOverrideEntry(items[id]);
+    if (entry) out[id] = entry;
+  }
+  return {version:1, items:out};
+}
+
+/* העתקה רדודה — חובה לפני החלת patch, כדי לא למוטט את אובייקטי FOODS עצמם */
+function copyFoodShallow(f){
+  var out = {}, k;
+  for (k in f){
+    if (Object.prototype.hasOwnProperty.call(f, k)) out[k] = f[k];
+  }
+  return out;
+}
+
+/* מחיל את שכבת ההתאמות על תוצאת mergeFoods. אותו מבנה בדיוק ({list, byId}),
+   המוסתרים נשארים בשתי הרשימות ומסומנים ב-hidden:true. id שאין לו מזון — מדולג */
+function applyFoodOverrides(merged, items){
+  var src = (merged && typeof merged === "object" && !Array.isArray(merged)) ? merged : {};
+  var list = Array.isArray(src.list) ? src.list : [];
+  var ov = (items && typeof items === "object" && !Array.isArray(items)) ? items : {};
+  var outList = [], byId = {}, i, f, id, entry, item;
+  for (i=0;i<list.length;i++){
+    f = list[i];
+    if (!f) continue;
+    id = f.id;
+    entry = (typeof id === "string" && id !== "" && Object.prototype.hasOwnProperty.call(ov, id)) ? normalizeFoodOverrideEntry(ov[id]) : null;
+    item = f;
+    if (entry && (entry.patch || entry.hidden)){
+      item = copyFoodShallow(f);
+      if (entry.patch){
+        item.name = entry.patch.name;
+        item.cat = entry.patch.cat;
+        item.portion = entry.patch.portion;
+        item.grams = entry.patch.grams;
+        item.kcal100 = entry.patch.kcal100;
+        item.protein100 = entry.patch.protein100;
+        item.carbs100 = entry.patch.carbs100;
+        item.fat100 = entry.patch.fat100;
+        item.free = entry.patch.free === true;
+      }
+      if (entry.hidden) item.hidden = true;
+    }
+    outList.push(item);
+    if (typeof id === "string" && id !== "" && !Object.prototype.hasOwnProperty.call(byId, id)) byId[id] = item;
+  }
+  return {list:outList, byId:byId};
+}
+
+/* מיזוג שתי מפות התאמות (ענן מול מקומי) פר-id: updatedAt חדש גובר, תיקו או חסר ⇒ ענן.
+   localNewer = כמה ids שבהם המקומי גבר (כולל ids שקיימים רק מקומית) — סימן לדחיפה */
+function mergeOverrideMaps(cloudItems, localItems){
+  var cloud = normalizeFoodOverrides({items:cloudItems}).items;
+  var local = normalizeFoodOverrides({items:localItems}).items;
+  var out = {}, id, localNewer = 0;
+  for (id in cloud){
+    if (Object.prototype.hasOwnProperty.call(cloud, id)) out[id] = cloud[id];
+  }
+  for (id in local){
+    if (!Object.prototype.hasOwnProperty.call(local, id)) continue;
+    if (!Object.prototype.hasOwnProperty.call(out, id)){ out[id] = local[id]; localNewer++; continue; }
+    if (local[id].updatedAt > out[id].updatedAt){ out[id] = local[id]; localNewer++; }
+  }
+  return {items:out, localNewer:localNewer};
+}
+
+/* מיזוג רשימות המזון האישי פר-id. ברירת המחדל ההיסטורית נשמרת — הענן הוא הבסיס —
+   אבל פריט מקומי שנערך (ויש לו updatedAt חדש יותר) לא נדרס יותר.
+   pushNeeded = כמה פריטים מקומיים שרדו/גברו ולכן חייבים לחזור לענן */
+function mergeCustomFoodLists(cloudFoods, localFoods){
+  var cloud = Array.isArray(cloudFoods) ? cloudFoods : [];
+  var local = Array.isArray(localFoods) ? localFoods : [];
+  var out = [], idx = {}, i, f, id, pushNeeded = 0;
+  for (i=0;i<cloud.length;i++){
+    f = cloud[i];
+    if (!f || typeof f !== "object" || Array.isArray(f)) continue;
+    if (typeof f.id !== "string" || f.id === "") continue;
+    if (Object.prototype.hasOwnProperty.call(idx, f.id)) continue;
+    idx[f.id] = out.length;
+    out.push(f);
+  }
+  for (i=0;i<local.length;i++){
+    f = local[i];
+    if (!f || typeof f !== "object" || Array.isArray(f)) continue;
+    id = f.id;
+    if (typeof id !== "string" || id === "") continue;
+    if (!Object.prototype.hasOwnProperty.call(idx, id)){
+      idx[id] = out.length;
+      out.push(f);
+      pushNeeded++;
+      continue;
+    }
+    var lu = (typeof f.updatedAt === "string") ? f.updatedAt : "";
+    var cu = (typeof out[idx[id]].updatedAt === "string") ? out[idx[id]].updatedAt : "";
+    if (lu > cu){ out[idx[id]] = f; pushNeeded++; }
+  }
+  return {foods:out, pushNeeded:pushNeeded};
+}
+
 function foodMacros(byId, foodId, grams){
   var f = null;
   if (byId && typeof foodId === "string" && foodId !== "" && Object.prototype.hasOwnProperty.call(byId, foodId)) f = byId[foodId];
@@ -2145,7 +2321,8 @@ function defaultMeals(n){
 }
 
 /* קטלוג המזונות שמתפרסם לפורטל (catalog/main) — בלי אבות המזון הגנריים,
-   רק השדות שהלקוחה צריכה לבחירה; free תמיד בוליאני (Firestore דוחה undefined) */
+   רק השדות שהלקוחה צריכה לבחירה; free תמיד בוליאני (Firestore דוחה undefined).
+   28.8.2026: מזון שסיוון הסתירה מהמאגר לא מגיע לפורטל — בדיוק כמו הגנריים */
 function catalogFoods(list){
   var out = [], i;
   if (!Array.isArray(list)) return out;
@@ -2153,6 +2330,7 @@ function catalogFoods(list){
     var f = list[i];
     if (!f || typeof f !== "object") continue;
     if (f.generic === true) continue;
+    if (f.hidden === true) continue;
     if (typeof f.id !== "string" || f.id === "") continue;
     if (typeof f.name !== "string" || f.name === "") continue;
     out.push({
@@ -3210,7 +3388,7 @@ var EXAMPLES = [
 /* ==== PURE-CALC-END ==== */
 
 /* ---------- שכבת אחסון: לקוחות, רובריקות מקדם ומזונות אישיים ---------- */
-var CLIENTS_KEY = "sivan-clients-v1", FACTORS_KEY = "sivan-factors-v1", CUSTOM_FOODS_KEY = "sivan-foods-custom-v1", LEGACY_MENUS_KEY = "sivan-menus-v1", TEMPLATES_KEY = "sivan-templates-v1";
+var CLIENTS_KEY = "sivan-clients-v1", FACTORS_KEY = "sivan-factors-v1", CUSTOM_FOODS_KEY = "sivan-foods-custom-v1", LEGACY_MENUS_KEY = "sivan-menus-v1", TEMPLATES_KEY = "sivan-templates-v1", FOOD_OVERRIDES_KEY = "sivan-foods-overrides-v1";
 
 function readRaw(key){
   try { return localStorage.getItem(key); }
@@ -3264,6 +3442,15 @@ function writeCustomFoods(cf){
   return okWrite;
 }
 
+/* ההתאמות של סיוון על מאגר הבסיס (28.8.2026): {version:1, items:{"<foodId>":{hidden,patch,updatedAt}}}.
+   מסתנכרן דרך settings/main בדיוק כמו המזונות האישיים */
+function readFoodOverrides(){ return normalizeFoodOverrides(readJSON(FOOD_OVERRIDES_KEY)); }
+function writeFoodOverrides(ov){
+  var okWrite = writeJSON(FOOD_OVERRIDES_KEY, normalizeFoodOverrides(ov), "לא ניתן לשמור שינויים במאגר בדפדפן הזה");
+  if (okWrite && !applyingRemote && cloudMode === "on"){ settingsDirty = true; schedulePush(); }
+  return okWrite;
+}
+
 /* תפריטים מוכנים ללקוח (תבניות גלובליות): {version:1, templates:[{id,name,meals}]} —
    לא שייכים ללקוח מסוים ומסתנכרנים דרך settings/main, בדיוק כמו המזונות האישיים */
 function readTemplates(){
@@ -3294,8 +3481,8 @@ function writeTemplates(store){
   return okWrite;
 }
 
-/* המקור היחיד לנתוני מזון בכל ה-UI: מאגר הבסיס + המזונות האישיים */
-function activeFoods(){ return mergeFoods(FOODS, readCustomFoods().foods); }
+/* המקור היחיד לנתוני מזון בכל ה-UI: מאגר הבסיס + המזונות האישיים + שכבת ההתאמות */
+function activeFoods(){ return applyFoodOverrides(mergeFoods(FOODS, readCustomFoods().foods), readFoodOverrides().items); }
 
 function getActiveClient(store){
   var s = store || readClientsStore();
@@ -3803,29 +3990,30 @@ function hydrateFromCloud(){
 
 /* מיזוג מזונות אישיים מהענן עם המקומיים (QA 20.8.2026): הענן הוא הבסיס,
    ופריט מקומי שה-id שלו לא קיים בענן נשמר ומוחזר בדחיפה הבאה.
-   מחזיר את מספר הפריטים המקומיים ששרדו כדי שהקורא יסמן settingsDirty */
+   28.8.2026: הגוף עבר ל-mergeCustomFoodLists הטהורה — גם עריכה מקומית (פריט עם
+   updatedAt חדש יותר) שורדת עכשיו את הענן. החוזה לא השתנה:
+   מחזיר מספר > 0 כשיש מה לדחוף חזרה, והקורא מסמן settingsDirty */
 function mergeCustomFoodsFromCloud(cloudCf){
   var local = readCustomFoods();
   var cloud = (cloudCf && typeof cloudCf === "object" && !Array.isArray(cloudCf)) ? cloudCf : {};
-  var cloudFoods = Array.isArray(cloud.foods) ? cloud.foods : [];
-  var byId = {}, i;
-  for (i=0;i<cloudFoods.length;i++){
-    var cf = cloudFoods[i];
-    if (cf && typeof cf.id === "string") byId[cf.id] = true;
-  }
-  var extra = [];
   var localFoods = (local && Array.isArray(local.foods)) ? local.foods : [];
-  for (i=0;i<localFoods.length;i++){
-    var lf = localFoods[i];
-    if (lf && typeof lf.id === "string" && !Object.prototype.hasOwnProperty.call(byId, lf.id)) extra.push(lf);
-  }
+  var res = mergeCustomFoodLists(cloud.foods, localFoods);
   var cn = Number(cloud.nextId), ln = Number(local ? local.nextId : 1);
   writeCustomFoods({
     version: 1,
-    foods: cloudFoods.concat(extra),
+    foods: res.foods,
     nextId: Math.max(isFinite(cn) ? cn : 1, isFinite(ln) ? ln : 1)
   });
-  return extra.length;
+  return res.pushNeeded;
+}
+
+/* מיזוג שכבת ההתאמות מהענן (28.8.2026) — פר-id, updatedAt חדש גובר.
+   מחזיר את מספר ה-ids שבהם המצב המקומי גבר (סימן שצריך לדחוף חזרה) */
+function mergeFoodOverridesFromCloud(cloudOv){
+  var cloud = (cloudOv && typeof cloudOv === "object" && !Array.isArray(cloudOv)) ? cloudOv : {};
+  var res = mergeOverrideMaps(cloud.items, readFoodOverrides().items);
+  writeFoodOverrides({version:1, items:res.items});
+  return res.localNewer;
 }
 
 /* מיזוג פר-לקוח: updatedAt חדש גובר (השוואת מחרוזות ISO); tombstone חדש מהעריכה המקומית מוחק */
@@ -3876,15 +4064,19 @@ function mergeCloudIntoLocal(remote, settings, hasSettings){
     if (settings && settings.factors) writeFactors(settings.factors);
     /* QA 20.8.2026: מיזוג במקום דריסה — מזון אישי שנוסף לפני שההתחברות הושלמה
        (או בזמן עבודה מקומית) לא נמחק יותר; פריטים מקומיים שאין בענן נדחפים חזרה */
-    var extraFoods = 0;
+    var extraFoods = 0, ovNewer = 0;
     if (settings && settings.customFoods){
       extraFoods = mergeCustomFoodsFromCloud(settings.customFoods);
+    }
+    /* אותו דפוס בדיוק לשכבת ההתאמות (28.8.2026) — הסתרה/עריכה מקומית לא נמחקת ע"י הענן */
+    if (settings && settings.foodsOverrides){
+      ovNewer = mergeFoodOverridesFromCloud(settings.foodsOverrides);
     }
     if (settings && settings.templates) writeTemplates(settings.templates);
     applyingRemote = false;
     /* דחיפה מיידית (לא מושהית) — ה-payload נבנה עכשיו, לפני שה-snapshot הראשוני
        של subscribeSnapshots יספיק לגעת באחסון (ביקורת 20.8, מרוץ ה-1500ms) */
-    if (extraFoods > 0 && cloudMode === "on" && fbDb) pushSettingsDoc();
+    if ((extraFoods > 0 || ovNewer > 0) && cloudMode === "on" && fbDb) pushSettingsDoc();
   } else {
     settingsDirty = true;
   }
@@ -3972,12 +4164,13 @@ function applySettingsSnapshot(doc){
   if (data.factors) writeFactors(data.factors);
   /* ביקורת 20.8: גם כאן מיזוג ולא דריסה — אחרת ה-snapshot הראשוני אחרי התחברות
      (שמגיע לפני הדחיפה המושהית) מוחק מזון אישי שנוסף לפני/בזמן ההתחברות */
-  var extraFoods = 0;
+  var extraFoods = 0, ovNewer = 0;
   if (data.customFoods){ extraFoods = mergeCustomFoodsFromCloud(data.customFoods); }
+  if (data.foodsOverrides){ ovNewer = mergeFoodOverridesFromCloud(data.foodsOverrides); }
   if (data.templates){ writeTemplates(data.templates); }
   applyingRemote = false;
-  if (extraFoods > 0){ settingsDirty = true; schedulePush(); }
-  if (data.customFoods) renderFoods();
+  if (extraFoods > 0 || ovNewer > 0){ settingsDirty = true; schedulePush(); }
+  if (data.customFoods || data.foodsOverrides) renderFoods();
   if (data.templates) renderExamples();
   refreshCloudUI();
 }
@@ -4041,6 +4234,7 @@ function pushSettingsDoc(){
     version: 1,
     factors: readFactors(),
     customFoods: readCustomFoods(),
+    foodsOverrides: readFoodOverrides(),
     templates: readTemplates(),
     shareTokens: cachedShareTokens(),
     deleted: cachedDeleted()
@@ -6437,8 +6631,10 @@ function buildFoodPick(foods, row, onGrams){
       for (i=0;i<foods.list.length;i++){ if (foods.list[i].generic) shown.push(foods.list[i]); }
       if (shown.length) list.appendChild(groupRow(GENERIC_GROUP_LABEL));
     } else {
-      /* QA 20.8.2026: searchMatches — גם צירוף מילים ("עוף עור") מוצא את המזון */
+      /* QA 20.8.2026: searchMatches — גם צירוף מילים ("עוף עור") מוצא את המזון.
+         28.8.2026: מזון שסיוון הסתירה לא מוצע יותר (שורות קיימות שמצביעות עליו — דרך byId — ממשיכות לעבוד) */
       for (i=0;i<foods.list.length && shown.length < FOOD_RESULT_LIMIT;i++){
+        if (foods.list[i].hidden === true) continue;
         if (searchMatches(foods.list[i].name, q)) shown.push(foods.list[i]);
       }
     }
@@ -8117,6 +8313,15 @@ var foodsSortDir = "asc";
 })();
 $("foodSearch").addEventListener("input", renderFoods);
 
+/* "הצג מוסתרים" (28.8.2026) — מצב זמני כמו foodsView; הכפתור מופיע רק כשיש מוסתרים */
+var showHiddenFoods = false;
+/* id המזון שנמצא כרגע בעריכה בכרטיס foodAddCard ("" = מצב הוספה) */
+var editingFoodId = "";
+$("foodsHiddenToggle").addEventListener("click", function(){
+  showHiddenFoods = !showHiddenFoods;
+  renderFoods();
+});
+
 /* בורר התצוגה: אותה רשימה מסוננת, שלוש קבוצות עמודות (25.8.2026: נוספה "לפי כמות") */
 (function initFoodsViewSeg(){
   var btns = $("foodsViewSeg").querySelectorAll("button");
@@ -8182,9 +8387,76 @@ function deleteCustomFood(id){
   }
   cf.foods = keep;
   if (!writeCustomFoods(cf)) return;
+  if (editingFoodId === id) cancelFoodEdit();
   renderFoods();
   rebuild();
   toast(name ? ("המזון נמחק: " + name) : "המזון נמחק");
+}
+
+/* ---------- הסתרה ועריכה של מזון (28.8.2026, בקשת סיוון) ---------- */
+/* סריקת שימוש לפני הסתרה/מחיקה: תפריטי כל הלקוחות + התפריטים המוכנים + הדוגמאות.
+   התשובה היא מספר התפריטים שבהם המזון מופיע — לא "כמה שורות" */
+function mealsUseFood(meals, id){
+  var list = Array.isArray(meals) ? meals : [], i, j;
+  for (i=0;i<list.length;i++){
+    var rows = (list[i] && Array.isArray(list[i].rows)) ? list[i].rows : [];
+    for (j=0;j<rows.length;j++){
+      if (rows[j] && rows[j].foodId === id) return true;
+    }
+  }
+  return false;
+}
+function countMenusUsingFood(id){
+  var count = 0, i, j;
+  var store = readClientsStore();
+  for (i=0;i<store.clients.length;i++){
+    var menus = store.clients[i].menus || [];
+    for (j=0;j<menus.length;j++){ if (mealsUseFood(menus[j].meals, id)) count++; }
+  }
+  var templates = readTemplates().templates;
+  for (i=0;i<templates.length;i++){ if (mealsUseFood(templates[i].meals, id)) count++; }
+  for (i=0;i<EXAMPLES.length;i++){ if (mealsUseFood(EXAMPLES[i].meals, id)) count++; }
+  return count;
+}
+/* ההודעה שמוצגת בלחיצה הראשונה (לפני האישור הדו-שלבי) */
+function foodUsageNote(f, verb){
+  var used = countMenusUsingFood(f.id);
+  if (used > 0) return "בשימוש ב-" + used + " תפריטים — ימשיך לעבוד בהם, רק ייעלם מחיפוש והוספה";
+  return verb + " את " + f.name + " מהמאגר?";
+}
+/* מחוברת לכפתור לפני twoStep: בלחיצה הראשונה עוד אין chip-bad, בשנייה כבר יש */
+function attachUsageNote(btn, f, verb){
+  btn.addEventListener("click", function(){
+    if (!btn.classList.contains("chip-bad")) toast(foodUsageNote(f, verb));
+  });
+}
+
+function setFoodHidden(id, hidden, name){
+  var ov = readFoodOverrides();
+  var prev = Object.prototype.hasOwnProperty.call(ov.items, id) ? ov.items[id] : null;
+  ov.items[id] = {
+    hidden: hidden === true,
+    patch: prev ? prev.patch : null,
+    updatedAt: new Date().toISOString()
+  };
+  if (!writeFoodOverrides(ov)) return;
+  if (hidden === true && editingFoodId === id) cancelFoodEdit();
+  renderFoods();
+  rebuild();
+  toast(hidden === true ? ("הוסתר מהמאגר: " + name) : ("חזר למאגר: " + name));
+}
+
+/* ניקוי ה-patch בלבד — דגל ההסתרה (אם קיים) נשמר, וה-updatedAt הטרי מונע
+   מהענן להחזיר את הערכים שנמחקו */
+function clearFoodPatch(id, name){
+  var ov = readFoodOverrides();
+  if (!Object.prototype.hasOwnProperty.call(ov.items, id)) return;
+  ov.items[id] = {hidden: ov.items[id].hidden === true, patch:null, updatedAt:new Date().toISOString()};
+  if (!writeFoodOverrides(ov)) return;
+  if (editingFoodId === id) startFoodEdit(id);
+  renderFoods();
+  rebuild();
+  toast("שוחזרו ערכי המקור: " + name);
 }
 
 /* עמודות "ערכים ל-100 ג'" — הטבלה ההיסטורית */
@@ -8265,13 +8537,26 @@ function fillQtyCells(tr, f){
 }
 
 /* הטבלה נבנית מהמאגר הממוזג — מזון אישי מסומן בצ'יפ ואפשר למחוק אותו מכאן.
-   אבות המזון (generic) לא מוצגים כאן: הם שורות מרשם לבונה, לא ערכים במאגר */
+   אבות המזון (generic) לא מוצגים כאן: הם שורות מרשם לבונה, לא ערכים במאגר.
+   28.8.2026: מזון מוסתר יורד מהטבלה ומהספירה, ונחשף רק דרך "הצג מוסתרים" */
 function renderFoods(){
   var q = ($("foodSearch").value || "").trim();
   var body = $("foodsBody");
   body.innerHTML = "";
-  var all = activeFoods().list, list = [];
-  for (var k=0;k<all.length;k++){ if (!all[k].generic) list.push(all[k]); }
+  var ovItems = readFoodOverrides().items;
+  var all = activeFoods().list, list = [], hiddenTotal = 0;
+  for (var k=0;k<all.length;k++){
+    if (all[k].generic) continue;
+    if (all[k].hidden === true){
+      hiddenTotal++;
+      if (!showHiddenFoods) continue;
+    }
+    list.push(all[k]);
+  }
+  if (hiddenTotal === 0) showHiddenFoods = false;
+  $("foodsHiddenRow").classList.toggle("hidden", hiddenTotal === 0);
+  $("foodsHiddenToggle").textContent = "הצג מוסתרים (" + hiddenTotal + ")";
+  $("foodsHiddenToggle").setAttribute("aria-pressed", showHiddenFoods ? "true" : "false");
   /* מיון לפי עמודה (רק בתצוגת הערכים; sortProducts עובד על כל אובייקט עם השדות האלה) */
   if (foodsView === "values" && foodsSortKey) list = sortProducts(list, foodsSortKey, foodsSortDir);
   var sortHeads = document.querySelectorAll("#foodsHeadValues th.sortable");
@@ -8290,10 +8575,12 @@ function renderFoods(){
       if (q && !searchMatches(f.name + " " + portion, q)) return;
       count++;
       var tr = document.createElement("tr");
+      if (f.hidden === true) tr.className = "food-off";
       var td1 = el("td","t-name");
       var nameBox = el("div","food-name-cell");
       nameBox.appendChild(el("span", null, f.name));
-      /* קישור מקור הערכים (הרחבת 17.8.2026) — באותו דפוס של טאב המוצרים */
+      /* קישור מקור הערכים (הרחבת 17.8.2026) — באותו דפוס של טאב המוצרים.
+         f.source לא נערך אף פעם, ולכן הקישור נשאר נכון גם אחרי עריכת ערכים */
       if (typeof f.source === "string" && f.source.indexOf("http") === 0){
         var srcLink = document.createElement("a");
         srcLink.className = "prod-src";
@@ -8303,12 +8590,41 @@ function renderFoods(){
         srcLink.textContent = "מקור";
         nameBox.appendChild(srcLink);
       }
+      if (isCustom) nameBox.appendChild(el("span","chip chip-neutral food-tag","מותאם"));
+      if (!isCustom && ovItems[f.id] && ovItems[f.id].patch) nameBox.appendChild(el("span","chip chip-neutral food-tag","נערך"));
+      if (f.hidden === true) nameBox.appendChild(el("span","chip chip-warn food-tag","מוסתר"));
+      /* עריכה — לכל מזון שאינו גנרי (הגנריים ממילא לא בטבלה) */
+      var edit = el("button","mini-act","✎");
+      edit.type = "button";
+      edit.title = "עריכה";
+      edit.setAttribute("data-food-edit", f.id);
+      edit.setAttribute("aria-label", "עריכת המזון " + f.name);
+      edit.addEventListener("click", function(){ startFoodEdit(f.id); });
+      nameBox.appendChild(edit);
+      if (f.hidden === true){
+        var back = el("button","mini-act","החזרה למאגר");
+        back.type = "button";
+        back.title = "החזרה למאגר";
+        back.setAttribute("data-food-unhide", f.id);
+        back.setAttribute("aria-label", "החזרת המזון " + f.name + " למאגר");
+        back.addEventListener("click", function(){ setFoodHidden(f.id, false, f.name); });
+        nameBox.appendChild(back);
+      } else if (!isCustom){
+        var hide = el("button","mini-act","◎");
+        hide.type = "button";
+        hide.title = "הסתרה מהמאגר";
+        hide.setAttribute("data-food-hide", f.id);
+        hide.setAttribute("aria-label", "הסתרת המזון " + f.name + " מהמאגר");
+        attachUsageNote(hide, f, "להסתיר");
+        twoStep(hide, "◎", "להסתיר?", function(){ setFoodHidden(f.id, true, f.name); });
+        nameBox.appendChild(hide);
+      }
       if (isCustom){
-        nameBox.appendChild(el("span","chip chip-neutral food-tag","מותאם"));
         var x = el("button","mini-x","×");
         x.type = "button";
         x.setAttribute("data-food-remove", f.id);
         x.setAttribute("aria-label", "מחיקת המזון " + f.name);
+        attachUsageNote(x, f, "למחוק");
         twoStep(x, "×", "למחוק?", function(){ deleteCustomFood(f.id); });
         nameBox.appendChild(x);
       }
@@ -8415,6 +8731,153 @@ function addCustomFood(){
   rebuild();
 }
 $("btnAddFood").addEventListener("click", addCustomFood);
+
+/* ---------- עריכת מזון (28.8.2026, בקשת סיוון) ----------
+   אותו כרטיס (foodAddCard) משמש גם כטופס עריכה. מזון אישי נערך במקום בתוך
+   sivan-foods-custom-v1; מזון-בסיס נשמר כ-override לפי id, בלי לגעת במערך FOODS.
+   מסלול נפרד לגמרי מ-saveCustomFood — הוא מסלול ההוספה בלבד. */
+function clearFoodForm(){
+  $("newFoodName").value = "";
+  for (var i=0;i<NEW_FOOD_FIELDS.length;i++) $(NEW_FOOD_FIELDS[i][0]).value = "";
+  $("newFoodPortion").value = "";
+  $("newFoodGrams").value = "";
+  $("newFoodFree").checked = false;
+}
+
+function syncFoodFormMode(){
+  var editing = (editingFoodId !== "");
+  var f = editing ? activeFoods().byId[editingFoodId] : null;
+  if (editing && !f){ editingFoodId = ""; editing = false; }
+  $("foodAddCard").classList.toggle("is-editing", editing);
+  $("foodFormEyebrow").textContent = editing ? "עריכת מזון" : "מאגר אישי";
+  $("foodFormTitle").textContent = editing ? ("עריכת מזון — " + f.name) : "הוסף מזון";
+  $("btnAddFood").classList.toggle("hidden", editing);
+  $("btnSaveFoodEdit").classList.toggle("hidden", !editing);
+  $("btnCancelFoodEdit").classList.toggle("hidden", !editing);
+  /* הסברי ההוספה יורדים במצב עריכה, ובמקומם הסבר העריכה */
+  $("foodAddLede").classList.toggle("hidden", editing);
+  $("foodAddNote").classList.toggle("hidden", editing);
+  $("foodEditNote").classList.toggle("hidden", !editing);
+  var ov = readFoodOverrides().items;
+  var hasPatch = editing && !isCustomFoodId(editingFoodId) &&
+                 Object.prototype.hasOwnProperty.call(ov, editingFoodId) && !!ov[editingFoodId].patch;
+  $("btnResetFoodEdit").classList.toggle("hidden", !hasPatch);
+  /* "ירק חופשי" רלוונטי רק בעריכה ורק לקטגוריית ירק */
+  $("newFoodFreeRow").classList.toggle("hidden", !(editing && $("newFoodCat").value === "veg"));
+}
+
+function startFoodEdit(id){
+  var f = activeFoods().byId[id];
+  if (!f) return;
+  editingFoodId = id;
+  $("newFoodName").value = f.name;
+  $("newFoodCat").value = f.cat;
+  for (var i=0;i<NEW_FOOD_FIELDS.length;i++) $(NEW_FOOD_FIELDS[i][0]).value = f[NEW_FOOD_FIELDS[i][1]];
+  $("newFoodPortion").value = (typeof f.portion === "string") ? f.portion : "";
+  $("newFoodGrams").value = (Number(f.grams) > 0) ? f.grams : "";
+  $("newFoodFree").checked = (f.free === true);
+  syncFoodFormMode();
+  var card = $("foodAddCard");
+  if (card.scrollIntoView) card.scrollIntoView({block:"start", behavior:"smooth"});
+  $("newFoodName").focus();
+}
+
+function cancelFoodEdit(){
+  editingFoodId = "";
+  clearFoodForm();
+  syncFoodFormMode();
+}
+
+/* עריכת מזון אישי — במקום, שומר id/addedAt ומוסיף updatedAt (מגן מדריסת-ענן) */
+function saveCustomFoodEdit(id, patch){
+  var cf = readCustomFoods();
+  var found = false;
+  for (var i=0;i<cf.foods.length;i++){
+    var f = cf.foods[i];
+    if (!f || f.id !== id) continue;
+    found = true;
+    f.name = patch.name;
+    f.cat = patch.cat;
+    f.portion = patch.portion;
+    f.grams = patch.grams;
+    f.kcal100 = patch.kcal100;
+    f.protein100 = patch.protein100;
+    f.carbs100 = patch.carbs100;
+    f.fat100 = patch.fat100;
+    if (patch.free === true) f.free = true;
+    else if (Object.prototype.hasOwnProperty.call(f, "free")) delete f.free;
+    f.updatedAt = new Date().toISOString();
+  }
+  if (!found) return false;
+  return writeCustomFoods(cf);
+}
+
+/* עריכת מזון-בסיס — override לפי id; מערך FOODS נשאר בדיוק כפי שהוזרק מ-ידע/09 */
+function saveBaseFoodPatch(id, patch){
+  var ov = readFoodOverrides();
+  var prev = Object.prototype.hasOwnProperty.call(ov.items, id) ? ov.items[id] : null;
+  ov.items[id] = {
+    hidden: !!(prev && prev.hidden),
+    patch: patch,
+    updatedAt: new Date().toISOString()
+  };
+  return writeFoodOverrides(ov);
+}
+
+/* ולידציה זהה ל-saveCustomFood (שם, קטגוריה, 4 מספריים ≥0) + אזהרת 4/4/9 לא-חוסמת */
+function applyFoodEdit(){
+  var id = editingFoodId;
+  if (id === "") return;
+  var byId = activeFoods().byId;
+  if (!Object.prototype.hasOwnProperty.call(byId, id)){ cancelFoodEdit(); return; }
+  var name = ($("newFoodName").value || "").trim();
+  if (name === ""){ toast("צריך שם למזון"); $("newFoodName").focus(); return; }
+  var cat = $("newFoodCat").value;
+  if (!Object.prototype.hasOwnProperty.call(CAT_LABEL, cat)){ toast("צריך לבחור קטגוריה"); $("newFoodCat").focus(); return; }
+  var vals = {}, i;
+  for (i=0;i<NEW_FOOD_FIELDS.length;i++){
+    var txt = String($(NEW_FOOD_FIELDS[i][0]).value || "").trim();
+    var v = Number(txt);
+    if (txt === "" || !isFinite(v) || v < 0){
+      toast("ערך לא תקין: " + NEW_FOOD_FIELDS[i][2] + " ל-100 ג'");
+      $(NEW_FOOD_FIELDS[i][0]).focus();
+      return;
+    }
+    vals[NEW_FOOD_FIELDS[i][1]] = v;
+  }
+  var g = Number($("newFoodGrams").value);
+  var patch = {
+    name: name,
+    cat: cat,
+    portion: String($("newFoodPortion").value || "").trim(),
+    grams: (isFinite(g) && g > 0) ? g : 100,
+    kcal100: vals.kcal100,
+    protein100: vals.protein100,
+    carbs100: vals.carbs100,
+    fat100: vals.fat100,
+    free: (cat === "veg" && $("newFoodFree").checked === true)
+  };
+  var okSave = isCustomFoodId(id) ? saveCustomFoodEdit(id, patch) : saveBaseFoodPatch(id, patch);
+  if (!okSave) return;
+  editingFoodId = "";
+  clearFoodForm();
+  syncFoodFormMode();
+  renderFoods();
+  rebuild();
+  var mk = macroKcal(patch.protein100, patch.carbs100, patch.fat100);
+  var off = Math.abs(mk - patch.kcal100) > Math.max(25, patch.kcal100 * 0.25);
+  toast(off ? ("נשמר ✓ — לבדוק את הערכים, לפי המאקרו יוצא " + n(mk) + " קק\"ל") : "נשמר ✓");
+}
+
+$("btnSaveFoodEdit").addEventListener("click", applyFoodEdit);
+$("btnCancelFoodEdit").addEventListener("click", cancelFoodEdit);
+$("newFoodCat").addEventListener("change", syncFoodFormMode);
+twoStep($("btnResetFoodEdit"), "שחזרי לערכי המקור", "לשחזר?", function(){
+  var id = editingFoodId;
+  if (id === "") return;
+  var f = activeFoods().byId[id];
+  clearFoodPatch(id, f ? f.name : "");
+});
 
 /* ---------- products tab ---------- */
 var prodFilter = "all";
