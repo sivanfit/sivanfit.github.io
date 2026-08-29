@@ -636,6 +636,24 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
 }
 /* ==== SAND-SERIF-END ==== */
 
+/* ==== UX-R0-START ==== */
+/* שלב 0 — Quick wins בבונה (29.8.2026, ux-0). 0.3: סרגל הסיכום (#mobileBar) דביק גם
+   בדסקטופ — הרול הבסיסי מציג אותו רק ≤719px (למעלה, בתוך SAND-SERIF); כאן מוסיפים
+   תצוגה מ-720px ומעלה: פס צף וממורכז ברוחב מוגבל כמו .wrap, בלי לגעת ברולים ההיסטוריים */
+@media (min-width:720px){
+  .app.builder-active .mobile-bar{
+    display:flex; position:fixed; inset-inline:0; inset-block-end:18px; z-index:50;
+    max-width:1100px; margin-inline:auto; align-items:center; gap:18px; justify-content:space-between;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:999px;
+    padding:12px 26px; box-shadow:var(--shadow);
+  }
+  .app.builder-active .wrap{padding-bottom:92px}
+  .mobile-bar .mb-num{font-size:20px; font-weight:800}
+  .mobile-bar .mb-sub{font-size:12.5px; color:var(--text-soft)}
+  .mobile-bar .mb-bar{flex:1 1 auto; max-width:260px}
+}
+/* ==== UX-R0-END ==== */
+
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
 .print-doc{display:none}
 @media print{
@@ -850,8 +868,9 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
           <div class="field"><label for="targetFatIn">שומן (ג')</label><input type="number" id="targetFatIn" min="0" max="400" step="1"></div>
         </div>
         <div class="row-flex">
-          <button class="btn" id="btnApplyTargets" type="button">קבע כיעד בבונה התפריט</button>
+          <button class="btn" id="btnApplyTargets" type="button">המשך לבונה התפריט ←</button>
         </div>
+        <p class="note-line">היעדים נשמרים אוטומטיים בכל שינוי</p>
       </div>
     </details>
 
@@ -959,6 +978,7 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
         <button class="btn btn-quiet btn-sm" id="btnMenuCopy" type="button">העתק כטקסט</button>
         <button class="btn btn-quiet btn-sm" id="btnMenuReset" type="button">איפוס</button>
       </div>
+      <p class="note-line" id="menuLoadedNote"></p>
       <p class="note-line">הכמויות בגרמים. בחירת מזון בשורה ריקה ממלאת אוטומטית את משקל המנה הביתית — ואפשר לשנות אותו חופשי. "תקציב ללקוח" בכותרת ארוחה = כמה קק"ל הלקוח/ה בוחר/ת לבד בקישור האישי; גם בלי תקציב הלקוח/ה יכול/ה לרשום בקישור מה אכל/ה בפועל. "תקציב לפי אבות מזון" (פחמימה/חלבון/שומן בקק"ל) מחליף בארוחה הזו את המילוי החופשי: הלקוח/ה בוחר/ת מזון לכל קטגוריה ומקבל/ת כמות גרמים מחושבת בדיוק לפי הקלוריות. אפשר להזין כמות בגרמים או ישירות בקק"ל — השדה השני מתעדכן לבד. כל שינוי כאן נשמר אוטומטית כטיוטה.</p>
     </div>
 
@@ -6533,7 +6553,7 @@ function twoStep(btn, label, confirmLabel, action){
       timer = null;
       btn.textContent = label;
       btn.classList.remove("chip-bad");
-    }, 4000);
+    }, 6000);
   });
 }
 
@@ -6642,6 +6662,7 @@ function buildFoodPick(foods, row, onGrams){
     openFoodPick = {pick: pick, close: close};
   }
   function choose(f){
+    var prevId = row.foodId;
     row.foodId = f.id;
     input.value = f.name;
     clear.hidden = false;
@@ -6650,6 +6671,21 @@ function buildFoodPick(foods, row, onGrams){
       var g = Number(f.grams);
       row.grams = (isFinite(g) && g > 0) ? g : 0;
       if (onGrams) onGrams(row.grams);
+    } else {
+      /* 0.7 (29.8.2026, UX quick win): החלפת מזון בשורה מלאה — אם הגרמים הנוכחיים
+         תואמים בדיוק למשקל המנה של המזון הקודם בשורה, סימן שסיוון לא שינתה אותם
+         ידנית, ואפשר לעדכן אוטומטית למשקל המנה של המזון החדש. גרמים ששונים ממשקל-
+         המנה-הקודם = עריכה ידנית — לא נוגעים */
+      var prevFood = (prevId && Object.prototype.hasOwnProperty.call(foods.byId, prevId)) ? foods.byId[prevId] : null;
+      var prevG = prevFood ? Number(prevFood.grams) : NaN;
+      if (prevFood && isFinite(prevG) && prevG > 0 && Number(row.grams) === prevG){
+        var ng = Number(f.grams);
+        if (isFinite(ng) && ng > 0 && ng !== prevG){
+          row.grams = ng;
+          if (onGrams) onGrams(row.grams);
+          toast("הכמות עודכנה למנה של " + f.name);
+        }
+      }
     }
     close();
     recalc();
@@ -6999,6 +7035,21 @@ function buildMealCard(foods, meal){
   budgetWrap.appendChild(el("span","meal-budget-label","קק\"ל"));
   head.appendChild(budgetWrap);
 
+  /* 0.2 (29.8.2026, UX quick win): שכפול ארוחה — עותק עמוק מיד אחרי המקור, בלי אישור
+     (פעולה לא הרסנית; אפשר למחוק את העותק אם נוצר בטעות) */
+  var dup = el("button","btn btn-quiet btn-sm","שכפל");
+  dup.type = "button";
+  dup.setAttribute("aria-label","שכפל ארוחה");
+  dup.addEventListener("click", function(){
+    var copy = copyMeals([meal])[0];
+    copy.name = meal.name + " (עותק)";
+    var idx = builderState.meals.indexOf(meal);
+    builderState.meals.splice(idx + 1, 0, copy);
+    rebuild();
+    toast("הארוחה שוכפלה");
+  });
+  head.appendChild(dup);
+
   var del = el("button","btn btn-quiet btn-sm","מחק ארוחה");
   del.type = "button";
   if (builderState.meals.length === 1){
@@ -7062,6 +7113,11 @@ function buildMealCard(foods, meal){
   syncCatBudgetState();
   card.appendChild(catWrap);
 
+  /* 0.1 (29.8.2026, UX quick win): ארוחה ריקה מקבלת שורת-מזון אחת מוכנה מראש — בלי
+     צורך ללחוץ "+ הוסף מזון" סתם כדי להתחיל. השורה הריקה לא "מלכלכת" שום דבר: היא
+     מסוננת ב-cleanMealsForSave/builderRowCount (foodId ריק), וה-push כאן קורה רק
+     כשמריצים buildMealCard בפועל (מ-rebuild) — לא גורם ללולאת רינדור */
+  if (meal.rows.length === 0) meal.rows.push({foodId:"", grams:0});
   var rowsWrap = el("div","meal-rows");
   for (var i=0;i<meal.rows.length;i++) rowsWrap.appendChild(buildFoodRow(foods, meal, meal.rows[i]));
   card.appendChild(rowsWrap);
@@ -7213,6 +7269,13 @@ function recalc(){
   saveBuilderDraft();   /* כל שינוי בבונה מגובה מיד כטיוטה פר-לקוח/ה (QA 20.8.2026) */
 }
 
+/* 0.5 (29.8.2026, UX quick win): שורת מצב קטנה מתחת לרשימת התפריטים השמורים —
+   כדי שסיוון לא תישאר בספק אם היא עורכת תפריט שמור או טיוטה חדשה */
+function updateMenuLoadedNote(loadedName){
+  var note = $("menuLoadedNote");
+  if (!note) return;
+  note.textContent = loadedName ? ("נטען כעת: " + loadedName) : "תפריט חדש (עדיין לא נשמר ללקוחה)";
+}
 function fillMenuList(c){
   var sel = $("menuList");
   sel.innerHTML = "";
@@ -7222,17 +7285,20 @@ function fillMenuList(c){
     empty.value = "";
     empty.textContent = "— אין תפריטים שמורים —";
     sel.appendChild(empty);
+    updateMenuLoadedNote(null);
     return;
   }
-  var wanted = "";
+  var wanted = "", loadedName = "";
   for (var i=0;i<menus.length;i++){
+    var isLoaded = menus[i].id === builderState.loadedMenuId;
     var o = document.createElement("option");
     o.value = menus[i].id;
-    o.textContent = menus[i].name + (menus[i].savedAt ? " · " + clientDateText(menus[i].savedAt) : "");
+    o.textContent = menus[i].name + (menus[i].savedAt ? " · " + clientDateText(menus[i].savedAt) : "") + (isLoaded ? " ✓ נטען" : "");
     sel.appendChild(o);
-    if (menus[i].id === builderState.loadedMenuId) wanted = menus[i].id;
+    if (isLoaded){ wanted = menus[i].id; loadedName = menus[i].name; }
   }
   if (wanted) sel.value = wanted;
+  updateMenuLoadedNote(wanted ? loadedName : null);
 }
 
 /* כרטיסים, כותרת ורשימת תפריטים לפי הלקוח/ה הפעיל/ה — בלי רינדור הארוחות */
@@ -7314,6 +7380,7 @@ function loadMenu(){
   builderState.menuName = menu.name;
   builderState.loadedMenuId = menu.id;
   $("menuNameIn").value = menu.name;
+  fillMenuList(c);
   rebuild();
   toast("נטען: " + menu.name);
 }
