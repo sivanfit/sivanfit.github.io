@@ -675,6 +675,12 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
 .cbar-chip{appearance:none; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; transition:border-color .15s, color .15s}
 .cbar-chip:hover{border-color:var(--accent-deep); color:var(--accent-deep)}
 .cbar-primary{margin-inline-start:auto; flex:0 0 auto; cursor:pointer; text-decoration:none}
+/* שלב 2 UX (29.8.2026): צ'יפ הסנכרון והבאנר של הטיוטה.
+   הצ'יפ לחיץ רק כשיש מה לעשות איתו (dirty → קפיצה לאזור התפריט) */
+.cbar-sync{flex:0 0 auto; max-width:100%}
+.cbar-sync:not([data-level="dirty"]){cursor:default}
+#draftNote{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+#draftNote .draft-note-text{flex:1 1 220px; min-width:0}
 .cbar-row-nav{gap:12px}
 .cbar-seg{flex:0 0 auto}
 .cbar-kcal{margin-inline-start:auto; font-size:13px; font-weight:800; color:var(--text-muted); white-space:nowrap}
@@ -691,6 +697,9 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
   .cbar-chips::-webkit-scrollbar{display:none}
   .cbar-chip{flex:0 0 auto}
   .cbar-primary{order:2; font-size:12.5px; padding:6px 12px}
+  /* צ'יפ הסנכרון הוא משפט שלם — במובייל הוא מקבל שורה משלו מתחת לצ'יפים */
+  .cbar-sync{order:5; flex:1 1 100%}
+  #draftNote{gap:8px}
   .cbar-row-nav{flex-wrap:nowrap}
   .cbar-seg{flex:1 1 auto}
   .cbar-seg button{flex:1 1 0; padding:5px 4px; font-size:13px}
@@ -778,6 +787,9 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
       </div>
       <select class="meas-target cbar-sel" id="cbarClientSel" aria-label="החלפת לקוחה" title="החלפת לקוחה"></select>
       <div class="cbar-chips" id="cbarChips"></div>
+      <!-- שלב 2 UX (29.8.2026): צ'יפ הסנכרון — משפט אחד על מה שהלקוחה רואה כרגע.
+           המחלקה והטקסט נקבעים ב-shareSyncState; לחיצה במצב dirty קופצת לאזור התפריט -->
+      <button class="chip cbar-chip cbar-sync hidden" id="clientSyncChip" type="button" data-level="off"><span class="chip-dot"></span><span id="clientSyncText">—</span></button>
       <a class="btn btn-sm cbar-primary" id="cbarPrimary" role="button" tabindex="0" target="_blank" rel="noopener noreferrer">פרסום קישור ללקוחה</a>
     </div>
     <div class="cbar-row cbar-row-nav">
@@ -1089,6 +1101,14 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
       </div>
       <p class="note-line" id="sumMacroCheck">—</p>
       <div class="break-list" id="sumBreak"></div>
+    </div>
+
+    <!-- שלב 2 UX (29.8.2026): הבאנר של הטיוטה — מוצג רק כשמה שבבונה עוד לא הגיע
+         ללקוחה (dirty). "חזרה לגרסה השמורה" מופיע רק כשיש תפריט שמור לחזור אליו -->
+    <div class="alert draft-note hidden" id="draftNote" role="status">
+      <span class="draft-note-text" id="draftNoteText">ממשיכה מהעריכה האחרונה — הלקוחה עוד לא רואה אותה</span>
+      <button class="btn btn-sm" id="btnDraftSave" type="button">שמור ושלח</button>
+      <button class="btn btn-quiet btn-sm hidden" id="btnDraftRevert" type="button">חזרה לגרסה השמורה</button>
     </div>
 
     <div class="stack hidden" id="mealsWrap"></div>
@@ -2467,6 +2487,102 @@ function defaultMeals(n){
   var out = [];
   for (var i=0;i<k;i++) out.push({name:mealName(i), rows:[], budget:null, catBudgets:null});
   return out;
+}
+
+/* ---------- מצב הסנכרון מול הלקוחה (שלב 2 UX, 29.8.2026) ----------
+   שלוש שכבות מצב חיות במקביל: טיוטת הבונה (localStorage) · התפריט השמור
+   (client.menus) · המסמך שהלקוחה רואה (shares/{token}). הצ'יפ בכותרת עונה על
+   שאלה אחת — "הלקוחה רואה את הגרסה האחרונה?" — ולכן ההשוואה כאן היא השוואת
+   *תוכן* בלבד, בלי שום חותמת זמן (אין Date בבלוק הזה, וגם לא היה נכון: שמירה
+   מחדש של אותו תוכן לא הופכת את הלקוחה למפגרת גרסה). */
+
+/* חתימה קנונית של תפריט — בדיוק מה שצינור השמירה שומר בפועל.
+   שורה בלי foodId או בלי כמות מדולגת, בדיוק כמו הסינון של cleanMealsForSave
+   ו-normalizeMenuRows: שלב 0 מוסיף שורה ריקה מוכנה לכל ארוחה, ואסור שהיא
+   תיחשב "שינוי שהלקוחה עוד לא רואה" (זה בדיוק צ'יפ שקרן). שם הארוחה נחשב
+   תוכן (שינוי שם הוא שינוי שצריך להישמר) ונופל ל-mealName כמו normalizeMeals,
+   והתקציבים מנורמלים באותן פונקציות של השמירה. אורך השם נכתב לפניו כדי ששם
+   שמכיל את תווי ההפרדה לא יבלבל בין ארוחות. */
+function menuSignature(meals){
+  if (!Array.isArray(meals)) return "";
+  var out = [], i, j;
+  for (i=0;i<meals.length;i++){
+    var m = meals[i];
+    if (!m || typeof m !== "object") continue;
+    var nm = (typeof m.name === "string" && m.name !== "") ? m.name : mealName(out.length);
+    var rows = [], src = Array.isArray(m.rows) ? m.rows : [];
+    for (j=0;j<src.length;j++){
+      var r = src[j];
+      if (!r || typeof r !== "object") continue;
+      if (typeof r.foodId !== "string" || r.foodId === "") continue;
+      var g = Number(r.grams);
+      if (!isFinite(g) || g <= 0) continue;
+      rows.push(r.foodId + ":" + g);
+    }
+    var b = normalizeMealBudget(m.budget);
+    var cb = normalizeCatBudgets(m.catBudgets), cbTxt = "-";
+    if (cb){
+      var cbParts = [];
+      for (j=0;j<CAT_BUDGET_KEYS.length;j++){
+        var v = cb[CAT_BUDGET_KEYS[j]];
+        cbParts.push(CAT_BUDGET_KEYS[j] + "=" + ((typeof v === "number" && isFinite(v)) ? v : "-"));
+      }
+      cbTxt = cbParts.join(",");
+    }
+    out.push("m" + nm.length + ":" + nm + "|b=" + ((b === null) ? "-" : b) + "|c=" + cbTxt + "|r=" + rows.join(","));
+  }
+  return out.join("\n");
+}
+
+/* "יש בטיוטה תוכן ממשי" = שורה עם מזון, או תקציב כלשהו. שם ארוחה לבדו אינו
+   תוכן — ארבע ארוחות ברירת מחדל ריקות הן בונה ריק, לא עבודה שלא נשמרה */
+function builderDraftHasContent(meals){
+  if (!Array.isArray(meals)) return false;
+  var i, j;
+  for (i=0;i<meals.length;i++){
+    var m = meals[i];
+    if (!m || typeof m !== "object") continue;
+    if (normalizeMealBudget(m.budget) !== null) return true;
+    if (normalizeCatBudgets(m.catBudgets) !== null) return true;
+    var src = Array.isArray(m.rows) ? m.rows : [];
+    for (j=0;j<src.length;j++){
+      var r = src[j];
+      if (r && typeof r === "object" && typeof r.foodId === "string" && r.foodId !== "") return true;
+    }
+  }
+  return false;
+}
+
+/* מצב הטיוטה מול התפריטים השמורים של אותה לקוחה:
+   "empty"   — אין תוכן ממשי ואין תפריט טעון (אין מה לשמור)
+   "clean"   — הטיוטה זהה לתפריט הטעון: אותה חתימה ואותו שם
+   "unsaved" — תפריט טעון אבל התוכן/השם שונים, או שהתפריט הטעון נמחק (id יתום)
+   "new"     — יש תוכן ממשי ואין תפריט טעון (תפריט חדש שעוד לא נשמר)
+   קלט פסול → "empty" (אין על מה להתריע) */
+function builderDraftState(draftMeals, draftName, loadedMenuId, menus){
+  var id = (typeof loadedMenuId === "string" && loadedMenuId !== "") ? loadedMenuId : "";
+  if (id === "") return builderDraftHasContent(draftMeals) ? "new" : "empty";
+  var list = Array.isArray(menus) ? menus : [];
+  var found = null, i;
+  for (i=0;i<list.length;i++){
+    if (list[i] && typeof list[i] === "object" && list[i].id === id){ found = list[i]; break; }
+  }
+  if (!found) return "unsaved";   /* התפריט הטעון נמחק — מה שבבונה לא שמור בשום מקום */
+  var a = (typeof draftName === "string") ? draftName.trim() : "";
+  var b = (typeof found.name === "string") ? found.name.trim() : "";
+  if (a !== b) return "unsaved";
+  return (menuSignature(draftMeals) === menuSignature(found.meals)) ? "clean" : "unsaved";
+}
+
+/* המשפט היחיד שסיוון רואה, והפעולה היחידה שמתאימה לו.
+   pending מגיע מצינור הענן (cloudPending) — לא מסמנים ✓ לפני שהדחיפה הסתיימה
+   בהצלחה, וכישלון ענן משאיר את הצ'יפ כתום */
+function shareSyncState(cloudOn, hasToken, draftState, pending){
+  if (!cloudOn) return {level:"off", text:"מקומי בלבד — אין שיתוף", action:""};
+  if (!hasToken) return {level:"nolink", text:"הלקוחה עוד לא קיבלה קישור", action:"publish"};
+  if (draftState === "unsaved" || draftState === "new") return {level:"dirty", text:"יש שינויים שהלקוחה עוד לא רואה", action:"save"};
+  if (pending) return {level:"pending", text:"מעדכן אצל הלקוחה…", action:""};
+  return {level:"ok", text:"הלקוחה רואה את הגרסה האחרונה ✓", action:"whatsapp"};
 }
 
 /* קטלוג המזונות שמתפרסם לפורטל (catalog/main) — בלי אבות המזון הגנריים,
@@ -4336,6 +4452,11 @@ function hasDirty(){
   }
   return false;
 }
+/* "הצינור עוד עובד" — מקור אמת יחיד לצ'יפ הענן בטופ-בר ולצ'יפ הסנכרון בכותרת
+   הלקוחה (שלב 2 UX, 29.8.2026). כל עוד זה true אסור לסמן ללקוחה ✓ */
+function cloudPending(){
+  return hasDirty() || settingsDirty || pushTimer !== null || pendingWrites > 0;
+}
 function schedulePush(){
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(flushPush, 1500);
@@ -4535,6 +4656,7 @@ document.addEventListener("visibilitychange", function(){
 /* ---------- UI הענן בטופבר ---------- */
 function refreshCloudUI(){
   refreshShareCard();   /* מצב הענן קובע אם שורת השיתוף מוצגת בכלל */
+  refreshSyncChip();    /* שלב 2 UX: אותו צינור מזין את צ'יפ הסנכרון בכותרת הלקוחה */
   var btn = $("cloudBtn"), chip = $("cloudStatus"), txt = $("cloudStatusText");
   if (!btn || !chip || !txt) return;
   if (cloudMode === "off"){
@@ -4552,7 +4674,7 @@ function refreshCloudUI(){
     if (cloudUser) who = cloudUser.displayName || cloudUser.email || "";
     if (!who) who = "מחוברת";
     btn.textContent = who + " · התנתק";
-    var pending = hasDirty() || settingsDirty || pushTimer !== null || pendingWrites > 0;
+    var pending = cloudPending();
     chip.classList.add(pending ? "chip-warn" : "chip-ok");
     txt.textContent = pending ? "ממתין לסנכרון" : "מסונכרן";
     return;
@@ -4795,10 +4917,9 @@ function refreshClientBar(){
   hint.classList.toggle("hidden", c !== null);
   hint.textContent = c ? "" : "בחרי לקוחה — כל האזורים כאן עובדים עליה";
 
-  var chips = $("cbarChips"), pri = $("cbarPrimary");
+  var chips = $("cbarChips");
   chips.innerHTML = "";
   chips.classList.toggle("hidden", !c);
-  pri.classList.toggle("hidden", !c);
 
   if (c){
     var token = cbarToken(c);
@@ -4813,19 +4934,11 @@ function refreshClientBar(){
     chips.appendChild(cbarChip(c.intakeRequested ? "שאלון אצל הלקוחה" : (answered ? "שאלון מולא" : "אין שאלון"),
       c.intakeRequested ? "chip-warn" : (answered ? "chip-ok" : "chip-neutral"),
       function(){ cbarGoTo("client", "clientIntakeCard"); }));
-
-    /* הגרסה ה"טיפשה" של שלב 1: יש קישור → וואטסאפ (אותו href של #btnWhatsShare);
-       אין קישור → קפיצה לכרטיס השיתוף. הלוגיקה המלאה מגיעה בשלבים 2-3 */
-    if (token !== ""){
-      pri.textContent = "שליחה בוואטסאפ";
-      pri.setAttribute("href", whatsShareHref(token));
-      pri.setAttribute("title", "פתיחת וואטסאפ עם הקישור האישי של " + c.name);
-    } else {
-      pri.textContent = "פרסום קישור ללקוחה";
-      pri.removeAttribute("href");
-      pri.setAttribute("title", "מעבר לכרטיס השיתוף בהגדרת הלקוחה");
-    }
   }
+
+  /* שלב 2 UX: צ'יפ הסנכרון והכפתור הראשי — מצב אמיתי אחד ופעולה אחת שמתאימה לו.
+     אותה פונקציה נקראת גם מכל שלב בצינור הענן, ולכן אין כאן שכפול לוגיקה */
+  refreshSyncChip();
 
   var segBtns = $("cbarSeg").querySelectorAll("button[data-sec]");
   for (var i=0;i<segBtns.length;i++){
@@ -4836,6 +4949,126 @@ function refreshClientBar(){
   var showKcal = (sec === "builder" && c !== null);
   kcal.classList.toggle("hidden", !showKcal);
   if (showKcal) setCbarKcal($("mbTotal").textContent, $("mbTarget").textContent);
+}
+
+/* ---------- צ'יפ הסנכרון (שלב 2 UX, 29.8.2026) ----------
+   "הלקוחה רואה את הגרסה האחרונה?" — משפט אחד בכותרת וכפתור אחד שמתקן.
+   הפרסום האוטומטי כבר קיים מאז 16.8 (pushShareIfPublished רץ אחרי כל דחיפה
+   מוצלחת של כרטיס הלקוחה); כאן רק נותנים לו שם ומראים אותו. */
+
+/* רמות shareSyncState → מחלקות הצ'יפ הקיימות (אין צבעים חדשים) */
+function syncChipClass(level){
+  if (level === "ok") return "chip-ok";
+  if (level === "dirty" || level === "pending") return "chip-warn";
+  return "chip-neutral";
+}
+
+/* מצב הטיוטה נלקח מהטיוטה השמורה ולא מ-builderState — כך הצ'יפ נכון גם ללקוחה
+   שהבונה שלה לא נטען בסשן הזה. מבנה הטיוטה: {meals, menuName, loadedMenuId} */
+function clientDraftInfo(c){
+  var out = {state:"empty", loadedMenuId:""};
+  if (!c) return out;
+  var drafts = readBuilderDrafts();
+  var d = Object.prototype.hasOwnProperty.call(drafts, c.id) ? drafts[c.id] : null;
+  if (!d || typeof d !== "object") return out;
+  out.loadedMenuId = (typeof d.loadedMenuId === "string") ? d.loadedMenuId : "";
+  out.state = builderDraftState(d.meals, d.menuName, d.loadedMenuId, c.menus);
+  return out;
+}
+
+function clientHasMenu(c, id){
+  if (!c || !id) return false;
+  for (var i=0;i<c.menus.length;i++){ if (c.menus[i].id === id) return true; }
+  return false;
+}
+
+/* הכפתור הראשי מדבר בקול של הצ'יפ. action ריק (אין ענן, או שהדחיפה בתהליך) —
+   הכפתור מוסתר: אין כרגע פעולה שתקדם את סיוון, ועדיף כלום מכפתור שמשקר */
+var cbarPrimaryAction = "";
+function applyPrimaryAction(action, c, token){
+  var pri = $("cbarPrimary");
+  if (!pri) return;
+  cbarPrimaryAction = action;
+  pri.classList.toggle("hidden", !c || action === "");
+  if (!c) return;
+  if (action === "whatsapp"){
+    pri.textContent = "שליחה בוואטסאפ";
+    pri.setAttribute("href", whatsShareHref(token));
+    pri.setAttribute("title", "פתיחת וואטסאפ עם הקישור האישי של " + c.name);
+    return;
+  }
+  pri.removeAttribute("href");
+  if (action === "save"){
+    pri.textContent = "שמור ושלח ללקוחה";
+    pri.setAttribute("title", "שמירת התפריט — הקישור של " + c.name + " מתעדכן אוטומטית תוך שניות");
+    return;
+  }
+  pri.textContent = "שלחי לה את התוכנית";
+  pri.setAttribute("title", "מעבר לכרטיס השיתוף בהגדרת הלקוחה");
+}
+
+/* action="save" → saveMenu() בלבד: הצינור הקיים (writeClientsStore → schedulePush
+   → pushClientDoc → pushShareIfPublished) כבר מעדכן את הלקוחה תוך ~1.5 שנ' */
+function cbarSaveAndSend(){
+  if (currentTabName() !== "builder") showTab("builder");
+  saveMenu();
+}
+
+/* "חזרה לגרסה השמורה" — דרך מנגנון הטעינה הקיים (בחירה ב-#menuList + loadMenu) */
+function cbarRevertDraft(){
+  var c = getActiveClient(null);
+  var id = builderState.loadedMenuId;
+  if (!c || !clientHasMenu(c, id)){ toast("אין גרסה שמורה לחזור אליה"); return; }
+  if (currentTabName() !== "builder") showTab("builder");
+  var sel = $("menuList");
+  if (!sel) return;
+  sel.value = id;
+  loadMenu();
+  refreshSyncChip();
+}
+
+/* הבאנר בראש אזור הארוחות — רק במצב dirty */
+function updateDraftNote(dirty, canRevert){
+  var box = $("draftNote");
+  if (!box) return;
+  box.classList.toggle("hidden", !dirty);
+  var rev = $("btnDraftRevert");
+  if (rev) rev.classList.toggle("hidden", !canRevert);
+}
+
+/* עדכון נקודתי של הצ'יפ + הכפתור הראשי + הבאנר, בלי לרנדר מחדש את כל הכותרת */
+function refreshSyncChip(){
+  var chip = $("clientSyncChip"), txt = $("clientSyncText");
+  if (!chip || !txt) return;
+  var c = getActiveClient(null);
+  if (!c){
+    chip.className = "chip cbar-chip cbar-sync hidden";
+    applyPrimaryAction("", null, "");
+    updateDraftNote(false, false);
+    return;
+  }
+  var token = cbarToken(c);
+  var info = clientDraftInfo(c);
+  var s = shareSyncState(cloudMode === "on", token !== "", info.state, cloudPending());
+  chip.className = "chip cbar-chip cbar-sync " + syncChipClass(s.level);
+  chip.setAttribute("data-level", s.level);
+  chip.setAttribute("title", s.text);
+  txt.textContent = s.text;
+  applyPrimaryAction(s.action, c, token);
+  updateDraftNote(s.level === "dirty", s.level === "dirty" && clientHasMenu(c, info.loadedMenuId));
+}
+
+var syncChipTimer = null;
+/* recalc רץ על כל הקלדה — הצ'יפ מתעדכן בהשהיה קצרה, אחרי שהטיוטה כבר נשמרה */
+function syncChipSoon(){
+  if (syncChipTimer) clearTimeout(syncChipTimer);
+  syncChipTimer = setTimeout(function(){ syncChipTimer = null; refreshSyncChip(); }, 250);
+}
+
+/* מיפוי action → התנהגות בכפתור הראשי (המקור היחיד: shareSyncState) */
+function runPrimaryAction(){
+  if (cbarPrimaryAction === "save"){ cbarSaveAndSend(); return; }
+  cbarGoTo("client", "clientShareCard");
 }
 
 (function initClientBar(){
@@ -4864,9 +5097,9 @@ function refreshClientBar(){
   var pri = $("cbarPrimary");
   if (pri){
     pri.addEventListener("click", function(e){
-      if (pri.getAttribute("href")) return;   /* יש טוקן — קישור הוואטסאפ עושה את העבודה */
+      if (pri.getAttribute("href")) return;   /* וואטסאפ — הקישור עצמו עושה את העבודה */
       e.preventDefault();
-      cbarGoTo("client", "clientShareCard");
+      runPrimaryAction();
     });
     pri.addEventListener("keydown", function(e){
       if (e.key !== "Enter" && e.key !== " ") return;
@@ -4875,9 +5108,21 @@ function refreshClientBar(){
         return;
       }
       e.preventDefault();
-      cbarGoTo("client", "clientShareCard");
+      runPrimaryAction();
     });
   }
+  /* שלב 2 UX: הצ'יפ לחיץ רק כשיש שינוי שלא הגיע ללקוחה — ואז הוא לוקח לתפריט */
+  var sync = $("clientSyncChip");
+  if (sync){
+    sync.addEventListener("click", function(){
+      if (sync.getAttribute("data-level") !== "dirty") return;
+      cbarGoTo("builder", "");
+    });
+  }
+  var dSave = $("btnDraftSave");
+  if (dSave) dSave.addEventListener("click", function(){ saveMenu(); });
+  var dRevert = $("btnDraftRevert");
+  if (dRevert) twoStep(dRevert, "חזרה לגרסה השמורה", "לוותר על השינויים?", cbarRevertDraft);
   syncTopbarHeight();
 })();
 
@@ -7564,6 +7809,7 @@ function recalc(){
   setChip($("mbChip"), $("mbChipText"), byKey.kcal);
 
   saveBuilderDraft();   /* כל שינוי בבונה מגובה מיד כטיוטה פר-לקוח/ה (QA 20.8.2026) */
+  syncChipSoon();       /* שלב 2 UX: הצ'יפ נגזר מהטיוטה — עדכון ב-debounce, לא בכל הקלדה */
 }
 
 /* 0.5 (29.8.2026, UX quick win): שורת מצב קטנה מתחת לרשימת התפריטים השמורים —
@@ -7662,7 +7908,11 @@ function saveMenu(){
   touchClient(c);
   if (!writeClientsStore(store)) return;
   fillMenuList(c);
+  /* שלב 2 UX: הטיוטה מיושרת מיד לתפריט שנשמר — אחרת צ'יפ הסנכרון היה נשאר
+     כתום ("יש שינויים שהלקוחה עוד לא רואה") עד ה-recalc הבא */
+  saveBuilderDraft();
   renderClients();
+  refreshSyncChip();
   toast(found ? ("התפריט עודכן: " + name) : ("התפריט נשמר: " + name));
 }
 
@@ -7854,6 +8104,7 @@ $("btnAddMeal").addEventListener("click", function(){
 $("menuNameIn").addEventListener("input", function(){
   builderState.menuName = $("menuNameIn").value;
   saveBuilderDraft();
+  syncChipSoon();   /* שינוי שם הוא שינוי שהלקוחה עוד לא רואה — הצ'יפ חייב להגיב גם לו */
 });
 twoStep($("btnMenuDelete"), "מחק", "לאשר מחיקה?", deleteMenu);
 twoStep($("btnMenuReset"), "איפוס", "לאשר איפוס?", resetBuilder);
