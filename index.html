@@ -654,6 +654,50 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
 }
 /* ==== UX-R0-END ==== */
 
+/* ==== CLIENT-BAR-START ==== */
+/* שלב 1 UX (29.8.2026) — כותרת הלקוחה הדביקה #clientBar.
+   כרטיס צף מעל התוכן, ילד ראשון של main.wrap ומחוץ לכל tab-panel. הצמדה מתחת
+   לטופ-בר: --topbar-h נמדד ב-JS (הטופ-בר flex-wrap וגובהו משתנה בין רזולוציות).
+   ערימת z-index: topbar 40 · bottom-nav 55 · mobile-bar 50 · פאנל הקומבובוקס 45 —
+   הכותרת ב-30, מתחת לכולם. */
+#clientBar{
+  position:sticky; top:var(--topbar-h,64px); z-index:30;
+  display:flex; flex-direction:column; gap:10px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:12px 14px; margin-bottom:-4px;
+}
+.cbar-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.cbar-id{display:flex; flex-direction:column; gap:1px; min-width:0}
+.cbar-name{font-family:var(--serif); font-size:19px; font-weight:700; line-height:1.25; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px}
+.cbar-hint{margin:0; font-size:12px; color:var(--text-soft)}
+.cbar-sel{max-width:200px; flex:0 1 auto}
+.cbar-chips{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0}
+.cbar-chip{appearance:none; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; transition:border-color .15s, color .15s}
+.cbar-chip:hover{border-color:var(--accent-deep); color:var(--accent-deep)}
+.cbar-primary{margin-inline-start:auto; flex:0 0 auto; cursor:pointer; text-decoration:none}
+.cbar-row-nav{gap:12px}
+.cbar-seg{flex:0 0 auto}
+.cbar-kcal{margin-inline-start:auto; font-size:13px; font-weight:800; color:var(--text-muted); white-space:nowrap}
+@media (max-width:719px){
+  /* הטופ-בר static במובייל — אין מה להצמיד מתחתיו */
+  #clientBar{top:0; padding:10px 12px; gap:8px}
+  .cbar-name{font-size:16.5px; max-width:150px}
+  .client-bar .client-avatar{width:34px; height:34px; font-size:15px}
+  /* שורה 1 מכווצת: אווטאר + שם + הכפתור הראשי. המחליף והצ'יפים יורדים יחד
+     לשורה שאחריה, והצ'יפים גוללים לרוחב (בלי scrollbar גלוי) במקום לשבור
+     את הפריסה. שם קצר → הכול נשאר בשורה אחת, וזה בסדר גמור. */
+  .cbar-sel{order:3; max-width:118px; font-size:13px; padding:5px 8px}
+  .cbar-chips{order:4; flex:1 1 0; min-width:0; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none}
+  .cbar-chips::-webkit-scrollbar{display:none}
+  .cbar-chip{flex:0 0 auto}
+  .cbar-primary{order:2; font-size:12.5px; padding:6px 12px}
+  .cbar-row-nav{flex-wrap:nowrap}
+  .cbar-seg{flex:1 1 auto}
+  .cbar-seg button{flex:1 1 0; padding:5px 4px; font-size:13px}
+  .cbar-kcal{font-size:12px}
+}
+/* ==== CLIENT-BAR-END ==== */
+
 /* ---------- ייצוא PDF: מסמך ההדפסה (#printDoc) — מוסתר במסך, היחיד שמודפס ---------- */
 .print-doc{display:none}
 @media print{
@@ -719,6 +763,32 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
 </header>
 
 <main class="wrap">
+
+  <!-- ===== כותרת הלקוחה הדביקה (שלב 1 UX, 29.8.2026) =====
+       עוטפת את שלושת מסכי העבודה (הגדרה · תפריט · מעקב) ומוצגת רק בהם.
+       איננה tab-panel שמיני: הפאנלים הקיימים לא זזו, והניווט הפנימי קורא ל-showTab
+       הקיים דרך data-sec — בכוונה לא data-tab ולא המחלקה tab-btn, כדי שספירת
+       7 הטאבים והסדר שלהם יישארו בדיוק כפי שהם. -->
+  <section class="client-bar hidden" id="clientBar" aria-label="הלקוחה שעובדים עליה">
+    <div class="cbar-row cbar-row-main">
+      <span class="client-avatar" id="cbarAvatar" aria-hidden="true">?</span>
+      <div class="cbar-id">
+        <div class="cbar-name" id="cbarName">—</div>
+        <p class="cbar-hint hidden" id="cbarHint"></p>
+      </div>
+      <select class="meas-target cbar-sel" id="cbarClientSel" aria-label="החלפת לקוחה" title="החלפת לקוחה"></select>
+      <div class="cbar-chips" id="cbarChips"></div>
+      <a class="btn btn-sm cbar-primary" id="cbarPrimary" role="button" tabindex="0" target="_blank" rel="noopener noreferrer">פרסום קישור ללקוחה</a>
+    </div>
+    <div class="cbar-row cbar-row-nav">
+      <div class="seg cbar-seg" id="cbarSeg">
+        <button type="button" data-sec="client" aria-pressed="false">הגדרה</button>
+        <button type="button" data-sec="builder" aria-pressed="false">תפריט</button>
+        <button type="button" data-sec="tracking" aria-pressed="false">מעקב</button>
+      </div>
+      <span class="cbar-kcal hidden" id="cbarKcal"></span>
+    </div>
+  </section>
 
   <!-- ===== 1. לקוחות ===== -->
   <section class="tab-panel is-active" id="tab-clients" role="tabpanel" aria-labelledby="tabbtn-clients">
@@ -4532,6 +4602,10 @@ function showTab(name){
   if (name === "client"){ renderClientTab(); }
   if (name === "builder"){ renderBuilderTab(); }
   if (name === "tracking"){ renderTrackingTab(); }
+  /* שלב 1 UX: זוכרים באיזה אזור של עמוד הלקוחה סיוון הייתה לאחרונה, ומרעננים
+     את הכותרת הדביקה (מוצגת רק בשלושת מסכי העבודה) */
+  if (Object.prototype.hasOwnProperty.call(WORK_SECTIONS, name)) lastClientSection = name;
+  refreshClientBar();
 }
 for (var ti=0; ti<tabBtns.length; ti++){
   tabBtns[ti].addEventListener("click", function(){ showTab(this.getAttribute("data-tab")); });
@@ -4583,8 +4657,229 @@ function refreshActiveChip(){
   var c = getActiveClient(null);
   chip.textContent = c ? ("לקוח: " + c.name) : "אין לקוח פעיל";
   chip.setAttribute("aria-label", c ? ("הלקוח/ה הפעיל/ה " + c.name + " — מעבר לרשימת הלקוחות") : "אין לקוח פעיל — מעבר לרשימת הלקוחות");
+  refreshClientBar();
 }
-$("activeClientChip").addEventListener("click", function(){ showTab("clients"); });
+/* במסכי העבודה הצ'יפ פותח את מחליף-הלקוחה שבכותרת הדביקה (בלי לעזוב את המסך);
+   בשאר הטאבים — ההתנהגות ההיסטורית: מעבר לרשימת הלקוחות */
+$("activeClientChip").addEventListener("click", function(){
+  var bar = $("clientBar"), sel = $("cbarClientSel");
+  if (bar && sel && !bar.classList.contains("hidden")){
+    sel.focus();
+    if (typeof sel.showPicker === "function"){ try { sel.showPicker(); } catch(e){} }
+    return;
+  }
+  showTab("clients");
+});
+
+/* ---------- כותרת הלקוחה הדביקה #clientBar (שלב 1 UX, 29.8.2026) ----------
+   שלושת מסכי העבודה — הגדרה · תפריט · מעקב — הם "אזורים" של עמוד לקוחה אחד,
+   ולא שלושה טאבים זרים. הכותרת עוטפת אותם: מי הלקוחה, מה מצבה, ומעבר בין
+   האזורים בלי לטפס לטופ-בר. המעבר עצמו הוא showTab הקיים; כפתורי האזורים
+   נושאים data-sec (בכוונה לא data-tab, ובלי המחלקה tab-btn) כדי שספירת שבעת
+   הטאבים והסדר שלהם יישארו בדיוק כפי שהם. */
+var WORK_SECTIONS = {client:true, builder:true, tracking:true};
+var lastClientSection = "client";
+
+/* מקור אמת יחיד לאזור הפעיל — הפאנל שנושא is-active (בלי מצב כפול שעלול להתפספס) */
+function currentTabName(){
+  var p = document.querySelector(".tab-panel.is-active");
+  return p ? p.id.replace("tab-", "") : "clients";
+}
+
+/* גובה הטופ-בר נמדד בפועל: הוא flex-wrap וגובהו משתנה בין רזולוציות, ובמובייל
+   הוא בכלל static — הכותרת הדביקה נצמדת אליו דרך המשתנה --topbar-h */
+function syncTopbarHeight(){
+  var bar = document.querySelector(".topbar"), app = $("app");
+  if (!bar || !app) return;
+  var st = window.getComputedStyle ? window.getComputedStyle(bar) : null;
+  var h = (st && st.position === "static") ? 0 : Math.round(bar.getBoundingClientRect().height);
+  app.style.setProperty("--topbar-h", h + "px");
+}
+window.addEventListener("resize", syncTopbarHeight);
+window.addEventListener("load", syncTopbarHeight);
+
+/* אותה הודעת וואטסאפ בכרטיס השיתוף ובכפתור הראשי שבכותרת — ניסוח אחד, מקור אחד */
+function whatsShareHref(token){
+  return WHATS_SHARE_BASE + encodeURIComponent("היי! הנה הקישור האישי שלך לתוכנית התזונה 🌸\n" + SHARE_LINK_BASE + token);
+}
+
+function cbarToken(c){
+  return (c && cloudMode === "on") ? shareTokenOf(c.id) : "";
+}
+
+/* "יש תשובות בשאלון" = לפחות תשובה אחת לא-ריקה נשמרה אצל הלקוחה */
+function cbarIntakeAnswered(c){
+  var a = c ? c.intake : null;
+  if (!a) return false;
+  for (var k in a){
+    if (!Object.prototype.hasOwnProperty.call(a, k)) continue;
+    var v = a[k];
+    if (v === undefined || v === null) continue;
+    if (String(v).replace(/^\s+|\s+$/g, "") !== "") return true;
+  }
+  return false;
+}
+
+/* גלילה לכרטיס שנפתח מצ'יפ — בקיזוז הטופ-בר והכותרת הדביקה, כדי שראש הכרטיס
+   לא ייחתך מתחתיהן */
+function cbarScrollToCard(id){
+  var node = $(id);
+  if (!node) return;
+  var off = 16, bar = $("clientBar"), top = document.querySelector(".topbar");
+  if (bar && !bar.classList.contains("hidden")) off += bar.getBoundingClientRect().height;
+  if (top && window.getComputedStyle && window.getComputedStyle(top).position !== "static") off += top.getBoundingClientRect().height;
+  var y = node.getBoundingClientRect().top + (window.pageYOffset || 0) - off;
+  window.scrollTo({top: Math.max(0, y), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+
+/* צ'יפ/כפתור בכותרת: מעבר לאזור, פתיחת הכרטיס הרלוונטי וגלילה אליו */
+function cbarGoTo(sec, cardId){
+  showTab(sec);
+  if (!cardId) return;
+  var card = $(cardId);
+  if (card && card.tagName === "DETAILS") card.open = true;
+  setTimeout(function(){ cbarScrollToCard(cardId); }, 0);
+}
+
+function cbarChip(label, cls, onClick){
+  var b = el("button", "chip cbar-chip " + cls, label);
+  b.type = "button";
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+/* מד הקלוריות בכותרת — מוזן ישירות מ-recalc באותם ערכים שנכתבים ל-#mbTotal/#mbTarget */
+function setCbarKcal(totalText, targetText){
+  var box = $("cbarKcal");
+  if (!box) return;
+  box.textContent = totalText + " / " + targetText + " קק\"ל";
+}
+
+/* המחליף — אותו מיון בדיוק כמו רשימת הלקוחות (sortClientsForView) */
+function fillCbarSelect(store, c){
+  var sel = $("cbarClientSel");
+  if (!sel) return;
+  sel.innerHTML = "";
+  if (!c){
+    var ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "בחרי לקוחה…";
+    sel.appendChild(ph);
+  }
+  var list = sortClientsForView(store.clients);
+  for (var i=0;i<list.length;i++){
+    var o = document.createElement("option");
+    o.value = list[i].id;
+    o.textContent = list[i].name;
+    sel.appendChild(o);
+  }
+  sel.value = c ? c.id : "";
+}
+
+function refreshClientBar(){
+  var bar = $("clientBar");
+  if (!bar) return;
+  var sec = currentTabName();
+  var isWork = Object.prototype.hasOwnProperty.call(WORK_SECTIONS, sec);
+  bar.classList.toggle("hidden", !isWork);
+  if (!isWork) return;
+  syncTopbarHeight();   /* גובה הטופ-בר משתנה (שם הלקוחה, כפתור הענן, שבירת שורות) */
+
+  var store = readClientsStore();
+  var c = getActiveClient(store);
+  fillCbarSelect(store, c);
+
+  $("cbarAvatar").textContent = c ? ((String(c.name || "").replace(/^\s+/, "").charAt(0)) || "?") : "?";
+  $("cbarName").textContent = c ? c.name : "אין לקוחה פעילה";
+  var hint = $("cbarHint");
+  hint.classList.toggle("hidden", c !== null);
+  hint.textContent = c ? "" : "בחרי לקוחה — כל האזורים כאן עובדים עליה";
+
+  var chips = $("cbarChips"), pri = $("cbarPrimary");
+  chips.innerHTML = "";
+  chips.classList.toggle("hidden", !c);
+  pri.classList.toggle("hidden", !c);
+
+  if (c){
+    var token = cbarToken(c);
+    chips.appendChild(cbarChip(token !== "" ? "קישור פעיל" : "אין קישור",
+      token !== "" ? "chip-ok" : "chip-neutral",
+      function(){ cbarGoTo("client", "clientShareCard"); }));
+    var mn = c.menus.length;
+    chips.appendChild(cbarChip(mn === 0 ? "אין תפריט" : (mn === 1 ? "תפריט אחד" : (mn + " תפריטים")),
+      mn ? "chip-ok" : "chip-neutral",
+      function(){ cbarGoTo("builder", ""); }));
+    var answered = cbarIntakeAnswered(c);
+    chips.appendChild(cbarChip(c.intakeRequested ? "שאלון אצל הלקוחה" : (answered ? "שאלון מולא" : "אין שאלון"),
+      c.intakeRequested ? "chip-warn" : (answered ? "chip-ok" : "chip-neutral"),
+      function(){ cbarGoTo("client", "clientIntakeCard"); }));
+
+    /* הגרסה ה"טיפשה" של שלב 1: יש קישור → וואטסאפ (אותו href של #btnWhatsShare);
+       אין קישור → קפיצה לכרטיס השיתוף. הלוגיקה המלאה מגיעה בשלבים 2-3 */
+    if (token !== ""){
+      pri.textContent = "שליחה בוואטסאפ";
+      pri.setAttribute("href", whatsShareHref(token));
+      pri.setAttribute("title", "פתיחת וואטסאפ עם הקישור האישי של " + c.name);
+    } else {
+      pri.textContent = "פרסום קישור ללקוחה";
+      pri.removeAttribute("href");
+      pri.setAttribute("title", "מעבר לכרטיס השיתוף בהגדרת הלקוחה");
+    }
+  }
+
+  var segBtns = $("cbarSeg").querySelectorAll("button[data-sec]");
+  for (var i=0;i<segBtns.length;i++){
+    segBtns[i].setAttribute("aria-pressed", segBtns[i].getAttribute("data-sec") === sec ? "true" : "false");
+  }
+
+  var kcal = $("cbarKcal");
+  var showKcal = (sec === "builder" && c !== null);
+  kcal.classList.toggle("hidden", !showKcal);
+  if (showKcal) setCbarKcal($("mbTotal").textContent, $("mbTarget").textContent);
+}
+
+(function initClientBar(){
+  var seg = $("cbarSeg");
+  if (seg){
+    var btns = seg.querySelectorAll("button[data-sec]");
+    for (var i=0;i<btns.length;i++){
+      (function(b){
+        b.addEventListener("click", function(){ showTab(b.getAttribute("data-sec")); });
+      })(btns[i]);
+    }
+  }
+  var sel = $("cbarClientSel");
+  if (sel){
+    sel.addEventListener("change", function(){
+      var id = sel.value;
+      if (!id || !setActiveClient(id)){ refreshClientBar(); return; }
+      /* נשארים באותו אזור — רק מרעננים אותו ללקוחה החדשה */
+      var sec = currentTabName();
+      if (sec === "client") renderClientTab();
+      else if (sec === "builder") renderBuilderTab();
+      else if (sec === "tracking") renderTrackingTab();
+      refreshClientBar();
+    });
+  }
+  var pri = $("cbarPrimary");
+  if (pri){
+    pri.addEventListener("click", function(e){
+      if (pri.getAttribute("href")) return;   /* יש טוקן — קישור הוואטסאפ עושה את העבודה */
+      e.preventDefault();
+      cbarGoTo("client", "clientShareCard");
+    });
+    pri.addEventListener("keydown", function(e){
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (pri.getAttribute("href")){
+        if (e.key === " "){ e.preventDefault(); pri.click(); }
+        return;
+      }
+      e.preventDefault();
+      cbarGoTo("client", "clientShareCard");
+    });
+  }
+  syncTopbarHeight();
+})();
 
 /* ---------- טאב לקוחות ---------- */
 function clientDateText(iso){
@@ -5461,6 +5756,7 @@ function renderClientTab(){
   for (var i=0;i<CLIENT_TAB_CARDS.length;i++){
     $(CLIENT_TAB_CARDS[i]).classList.toggle("hidden", !has);
   }
+  refreshClientBar();   /* לפני היציאה המוקדמת — הכותרת נכונה גם בלי לקוחה פעילה */
   if (!has) return;
 
   $("clientTitle").textContent = c.name;
@@ -5850,7 +6146,7 @@ function refreshShareCard(){
   if (wa){
     wa.classList.toggle("hidden", token === "");
     if (token !== ""){
-      wa.setAttribute("href", WHATS_SHARE_BASE + encodeURIComponent("היי! הנה הקישור האישי שלך לתוכנית התזונה 🌸\n" + SHARE_LINK_BASE + token));
+      wa.setAttribute("href", whatsShareHref(token));
     } else {
       wa.removeAttribute("href");
     }
@@ -7262,6 +7558,7 @@ function recalc(){
 
   $("mbTotal").textContent = n(totals.kcal);
   $("mbTarget").textContent = targetText;
+  setCbarKcal(n(totals.kcal), targetText);   /* מד הקלוריות בכותרת הדביקה — אותם ערכים, עדכון ישיר */
   $("mbFill").style.width = fillPct + "%";
   $("mbOver").style.width = overPct + "%";
   setChip($("mbChip"), $("mbChipText"), byKey.kcal);
@@ -7330,6 +7627,7 @@ function syncBuilderClient(){
 function renderBuilderTab(){
   syncBuilderClient();
   rebuild();
+  refreshClientBar();
 }
 
 /* שמירה: אותו שם (אחרי trim) דורס את התפריט הקיים ושומר את ה-id שלו */
@@ -7777,6 +8075,7 @@ function renderTrackingTab(){
   var c = getActiveClient(null);
   var has = c !== null;
   var t = has ? c.tracking : null;
+  refreshClientBar();   /* לפני היציאות המוקדמות (בלי לקוחה / בלי טבלה) */
   $("trackEmptyCard").classList.toggle("hidden", has);
   $("trackControlsCard").classList.toggle("hidden", !has);
   $("trackTableCard").classList.toggle("hidden", !t);
