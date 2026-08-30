@@ -764,13 +764,13 @@ input[type="tel"]:focus{border-color:var(--primary); box-shadow:0 0 0 3px var(--
       <div><strong>הדשבורד של סיוון</strong><span class="brand-sub">מערכת בניית תפריטים</span></div>
     </div>
     <nav class="tabs" role="tablist" aria-label="ניווט ראשי">
-      <!-- שתי קבוצות (QA 20.8.2026): "עבודה" — הטאבים שמשתנים לפי הלקוחה, ו"ידע" — המאגרים הקבועים.
-           במובייל הקבוצות נשברות לשתי שורות כך שכל שבעת הטאבים תמיד גלויים -->
+      <!-- איחוד הניווט (שלב 4 UX, 30.8.2026): שלושה מקומות במקום שבעה טאבים —
+           "הבית" (רשימת הלקוחות ומסך הבוקר) · "עמוד לקוחה" (הגדרה/תפריט/מעקב; הניווט
+           הפנימי ביניהם עבר ל-seg שבכותרת הדביקה) · קבוצת "ידע" (המאגרים הקבועים).
+           הפאנלים עצמם לא השתנו — רק כפתורי הכניסה מהטופ-בר -->
       <div class="tab-group" role="presentation">
-        <button class="tab-btn" role="tab" id="tabbtn-clients" aria-controls="tab-clients" aria-selected="true" data-tab="clients" type="button">לקוחות</button>
-        <button class="tab-btn" role="tab" id="tabbtn-client" aria-controls="tab-client" aria-selected="false" data-tab="client" type="button">הגדרת לקוח</button>
-        <button class="tab-btn" role="tab" id="tabbtn-builder" aria-controls="tab-builder" aria-selected="false" data-tab="builder" type="button">בונה תפריט</button>
-        <button class="tab-btn" role="tab" id="tabbtn-tracking" aria-controls="tab-tracking" aria-selected="false" data-tab="tracking" type="button">טבלת מעקב</button>
+        <button class="tab-btn" role="tab" id="tabbtn-clients" aria-controls="tab-clients" aria-selected="true" data-tab="clients" type="button">הבית</button>
+        <button class="tab-btn" role="tab" id="tabbtn-client" aria-controls="tab-client" aria-selected="false" data-tab="client" type="button">עמוד לקוחה</button>
       </div>
       <span class="tab-sep" aria-hidden="true"></span>
       <div class="tab-group" role="presentation">
@@ -4755,10 +4755,21 @@ syncThemeLabel();
 
 /* ---------- tabs ---------- */
 var tabBtns = document.querySelectorAll(".tab-btn");
+
+/* איחוד הניווט (שלב 4 UX, 30.8.2026): הטופ-בר מציג שלושה מקומות — "הבית",
+   "עמוד לקוחה" (המאגד את הגדרה/תפריט/מעקב; הניווט הפנימי ב-seg של הכותרת
+   הדביקה) וקבוצת "ידע". ההדגשה בטופ-בר נעשית לפי הקבוצה: כפתור "עמוד לקוחה"
+   דולק בכל אחד משלושת מסכי העבודה */
+function tabGroupOf(name){
+  if (name === "builder" || name === "tracking") return "client";
+  return name;
+}
+
 function showTab(name){
+  var group = tabGroupOf(name);
   for (var i=0;i<tabBtns.length;i++){
     var b = tabBtns[i];
-    var on = b.getAttribute("data-tab") === name;
+    var on = b.getAttribute("data-tab") === group;
     b.setAttribute("aria-selected", on ? "true" : "false");
   }
   var panels = document.querySelectorAll(".tab-panel");
@@ -4779,7 +4790,11 @@ function showTab(name){
   refreshClientBar();
 }
 for (var ti=0; ti<tabBtns.length; ti++){
-  tabBtns[ti].addEventListener("click", function(){ showTab(this.getAttribute("data-tab")); });
+  tabBtns[ti].addEventListener("click", function(){
+    var t = this.getAttribute("data-tab");
+    /* "עמוד לקוחה" חוזר לאזור האחרון שסיוון עבדה בו (הגדרה/תפריט/מעקב) */
+    showTab(t === "client" ? lastClientSection : t);
+  });
 }
 
 /* ---------- בר ניווט תחתון (מובייל, Sand & Serif 21.8) ----------
