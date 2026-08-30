@@ -634,6 +634,17 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
 @media (max-width:719px){
   .food-group-label{font-size:13px}
 }
+/* שלב 3 UX (29.8.2026): input[type="tel"] (שדה הטלפון) לא היה ברשימת שדות הטופס
+   ההיסטורית (text/number/date/select/textarea) — בלי עקיפה הוא מקבל את ברירת
+   המחדל הלבנה של הדפדפן, שבורה בערכת הנושא הכהה. הערכים תואמים לעיצוב הסופי
+   (הבסיס + עקיפת הגבול שלמעלה) של שאר השדות */
+input[type="tel"]{
+  font:inherit; font-size:14.5px; color:var(--text); background:var(--surface);
+  border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; width:100%;
+  transition:border-color .15s, box-shadow .15s;
+}
+input[type="tel"]:hover{border-color:var(--border-strong)}
+input[type="tel"]:focus{border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-soft); outline:none}
 /* ==== SAND-SERIF-END ==== */
 
 /* ==== UX-R0-START ==== */
@@ -675,6 +686,8 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
 .cbar-chip{appearance:none; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; transition:border-color .15s, color .15s}
 .cbar-chip:hover{border-color:var(--accent-deep); color:var(--accent-deep)}
 .cbar-primary{margin-inline-start:auto; flex:0 0 auto; cursor:pointer; text-decoration:none}
+/* שלב 3 UX (29.8.2026): כפתור "העתק קישור" ליד הראשי */
+#cbarCopyLink{flex:0 0 auto}
 /* שלב 2 UX (29.8.2026): צ'יפ הסנכרון והבאנר של הטיוטה.
    הצ'יפ לחיץ רק כשיש מה לעשות איתו (dirty → קפיצה לאזור התפריט) */
 .cbar-sync{flex:0 0 auto; max-width:100%}
@@ -697,6 +710,8 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
   .cbar-chips::-webkit-scrollbar{display:none}
   .cbar-chip{flex:0 0 auto}
   .cbar-primary{order:2; font-size:12.5px; padding:6px 12px}
+  /* מובייל צר — הכפתור המשני יורד; ההעתקה עדיין זמינה מכרטיס השיתוף */
+  #cbarCopyLink{display:none}
   /* צ'יפ הסנכרון הוא משפט שלם — במובייל הוא מקבל שורה משלו מתחת לצ'יפים */
   .cbar-sync{order:5; flex:1 1 100%}
   #draftNote{gap:8px}
@@ -791,6 +806,8 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
            המחלקה והטקסט נקבעים ב-shareSyncState; לחיצה במצב dirty קופצת לאזור התפריט -->
       <button class="chip cbar-chip cbar-sync hidden" id="clientSyncChip" type="button" data-level="off"><span class="chip-dot"></span><span id="clientSyncText">—</span></button>
       <a class="btn btn-sm cbar-primary" id="cbarPrimary" role="button" tabindex="0" target="_blank" rel="noopener noreferrer">פרסום קישור ללקוחה</a>
+      <!-- שלב 3 UX (29.8.2026): כפתור משני — מוצג רק כשיש טוקן, קורא לפעולת ההעתקה הקיימת -->
+      <button class="btn btn-quiet btn-sm hidden" id="cbarCopyLink" type="button">העתק קישור</button>
     </div>
     <div class="cbar-row cbar-row-nav">
       <div class="seg cbar-seg" id="cbarSeg">
@@ -906,6 +923,12 @@ tr.food-group-row:hover .food-group-arrow{color:var(--text)}
         </div>
         <p class="note-line hidden" id="subStatusLine"></p>
       </div>
+      <!-- שדה טלפון לוואטסאפ ישיר (שלב 3 UX, 29.8.2026) — לא חובה, autosave כמו שאר השדות -->
+      <div class="field">
+        <label for="clientPhoneIn">טלפון (לוואטסאפ)</label>
+        <input type="tel" id="clientPhoneIn" placeholder="050-1234567" dir="ltr">
+      </div>
+      <p class="note-line">לא חובה — מאפשר לפתוח וואטסאפ ישירות אליה</p>
     </div>
 
     <details class="card card-fold hidden" id="clientIntakeCard">
@@ -3472,6 +3495,29 @@ function normalizeTracking(raw){
   };
 }
 
+/* טלפון לוואטסאפ ישיר (שלב 3 UX, 29.8.2026): קלט חופשי (רווחים/מקפים/+/00) →
+   ספרות בלבד בפורמט בינ"ל "972XXXXXXXXX" (בלי "+" — wa.me/<number> רוצה ספרות בלבד).
+   מקבל גם נייד (05X, 9 ספרות אחרי ה-0) וגם קווי (0X, 8 ספרות אחרי ה-0).
+   לא-תקין (ריק/קצר/ארוך/לא מתחיל ב-0 או 972) => "" — נופל בשימוש ל-wa.me/?text= הכללי */
+function normalizePhoneIL(raw){
+  var s = (typeof raw === "string") ? raw : "";
+  var digits = s.replace(/[^0-9]/g, "");
+  if (digits === "") return "";
+  if (digits.slice(0,5) === "00972") digits = digits.slice(2);
+  if (digits.slice(0,3) === "972"){
+    var rest = digits.slice(3);
+    if (rest.length < 8 || rest.length > 9) return "";
+    if (rest.charAt(0) === "0") return "";
+    return "972" + rest;
+  }
+  if (digits.charAt(0) === "0"){
+    var local = digits.slice(1);
+    if (local.length < 8 || local.length > 9) return "";
+    return "972" + local;
+  }
+  return "";
+}
+
 /* לקוח בלי id תקין נזרק (אין דרך להתייחס אליו); createdAt/updatedAt נשמרים כמו שהם אם קיימים */
 function normalizeClient(raw){
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -3480,6 +3526,9 @@ function normalizeClient(raw){
     id: raw.id,
     name: (typeof raw.name === "string" && raw.name !== "") ? raw.name : "לקוח ללא שם",
     sex: (raw.sex === "female" || raw.sex === "male") ? raw.sex : "",
+    /* טלפון לוואטסאפ ישיר (שלב 3 UX, 29.8.2026) — חופשי לגמרי; הנרמול לפורמט
+       בינ"ל (normalizePhoneIL) קורה רק בשימוש (whatsShareHref), לא באחסון */
+    phone: (typeof raw.phone === "string") ? raw.phone : "",
     /* 24.8.2026: השאלון פתוח למילוי אצל הלקוחה בפורטל. חסר/לא-true → false,
        כדי שלקוחות ותיקים לא יקבלו פתאום שאלון פתוח בקישור שלהם */
     intakeRequested: raw.intakeRequested === true,
@@ -4820,9 +4869,17 @@ function syncTopbarHeight(){
 window.addEventListener("resize", syncTopbarHeight);
 window.addEventListener("load", syncTopbarHeight);
 
-/* אותה הודעת וואטסאפ בכרטיס השיתוף ובכפתור הראשי שבכותרת — ניסוח אחד, מקור אחד */
-function whatsShareHref(token){
-  return WHATS_SHARE_BASE + encodeURIComponent("היי! הנה הקישור האישי שלך לתוכנית התזונה 🌸\n" + SHARE_LINK_BASE + token);
+/* אותה הודעת וואטסאפ בכרטיס השיתוף ובכפתור הראשי שבכותרת — ניסוח אחד, מקור אחד.
+   שלב 3 UX (29.8.2026): כשיש טלפון תקין (client.phone מנורמל דרך normalizePhoneIL) —
+   פותח ישר לצ'אט של הלקוחה (wa.me/<972...>); בלי/לא-תקין — נופל לקישור הכללי
+   wa.me/?text= (ההתנהגות הקודמת). ההודעה פותחת בברכה עם השם הפרטי כשהוא ידוע. */
+function whatsShareHref(token, client){
+  var name = (client && typeof client.name === "string") ? client.name.replace(/^\s+/, "") : "";
+  var firstName = name ? name.split(/\s+/)[0] : "";
+  var greeting = firstName ? ("היי " + firstName + "! ") : "היי! ";
+  var phone = normalizePhoneIL(client ? client.phone : "");
+  var base = (phone !== "") ? ("https://wa.me/" + phone + "?text=") : WHATS_SHARE_BASE;
+  return base + encodeURIComponent(greeting + "הנה הקישור האישי שלך לתוכנית התזונה 🌸\n" + SHARE_LINK_BASE + token);
 }
 
 function cbarToken(c){
@@ -4993,7 +5050,7 @@ function applyPrimaryAction(action, c, token){
   if (!c) return;
   if (action === "whatsapp"){
     pri.textContent = "שליחה בוואטסאפ";
-    pri.setAttribute("href", whatsShareHref(token));
+    pri.setAttribute("href", whatsShareHref(token, c));
     pri.setAttribute("title", "פתיחת וואטסאפ עם הקישור האישי של " + c.name);
     return;
   }
@@ -5004,7 +5061,7 @@ function applyPrimaryAction(action, c, token){
     return;
   }
   pri.textContent = "שלחי לה את התוכנית";
-  pri.setAttribute("title", "מעבר לכרטיס השיתוף בהגדרת הלקוחה");
+  pri.setAttribute("title", "פרסום קישור אישי ופתיחת וואטסאפ עם ההודעה ללקוחה");
 }
 
 /* action="save" → saveMenu() בלבד: הצינור הקיים (writeClientsStore → schedulePush
@@ -5012,6 +5069,19 @@ function applyPrimaryAction(action, c, token){
 function cbarSaveAndSend(){
   if (currentTabName() !== "builder") showTab("builder");
   saveMenu();
+}
+
+/* action="publish" הופך לשליחה אמיתית (שלב 3 UX, 29.8.2026): publishShare(c) הקיימת
+   כבר מחזירה את הטוקן באופן סינכרוני (חדש/קיים) לפני שהכתיבה לענן נגמרת — הכותרת
+   עצמה מתרעננת דרך שרשרת schedulePush→refreshCloudUI→refreshSyncChip שכבר קיימת בתוך
+   publishShare. אם אין ענן/לקוח/הפרסום נכשל מיידית (token==="") — נופלים להתנהגות
+   הקודמת (קפיצה לכרטיס השיתוף) */
+function cbarPublishAndSend(){
+  var c = getActiveClient(null);
+  if (!c){ cbarGoTo("client", "clientShareCard"); return; }
+  var token = publishShare(c);
+  if (token === ""){ cbarGoTo("client", "clientShareCard"); return; }
+  window.open(whatsShareHref(token, c), "_blank", "noopener,noreferrer");
 }
 
 /* "חזרה לגרסה השמורה" — דרך מנגנון הטעינה הקיים (בחירה ב-#menuList + loadMenu) */
@@ -5045,6 +5115,7 @@ function refreshSyncChip(){
     chip.className = "chip cbar-chip cbar-sync hidden";
     applyPrimaryAction("", null, "");
     updateDraftNote(false, false);
+    updateCopyLinkBtn("");
     return;
   }
   var token = cbarToken(c);
@@ -5056,6 +5127,13 @@ function refreshSyncChip(){
   txt.textContent = s.text;
   applyPrimaryAction(s.action, c, token);
   updateDraftNote(s.level === "dirty", s.level === "dirty" && clientHasMenu(c, info.loadedMenuId));
+  updateCopyLinkBtn(token);
+}
+
+/* כפתור "העתק קישור" ליד הראשי (שלב 3 UX) — מוצג רק כשיש טוקן */
+function updateCopyLinkBtn(token){
+  var btn = $("cbarCopyLink");
+  if (btn) btn.classList.toggle("hidden", token === "");
 }
 
 var syncChipTimer = null;
@@ -5068,7 +5146,15 @@ function syncChipSoon(){
 /* מיפוי action → התנהגות בכפתור הראשי (המקור היחיד: shareSyncState) */
 function runPrimaryAction(){
   if (cbarPrimaryAction === "save"){ cbarSaveAndSend(); return; }
+  if (cbarPrimaryAction === "publish"){ cbarPublishAndSend(); return; }
   cbarGoTo("client", "clientShareCard");
+}
+
+/* כפתור "העתק קישור" בכותרת (שלב 3 UX) — קורא לפעולת ההעתקה הקיימת; מרעננת קודם
+   את shareLinkOut כך שהערך תמיד של הלקוח/ה הפעיל/ה, גם כשכרטיס השיתוף לא נטען בסשן הזה */
+function cbarCopyLink(){
+  refreshShareCard();
+  copyShareLink();
 }
 
 (function initClientBar(){
@@ -5123,6 +5209,8 @@ function runPrimaryAction(){
   if (dSave) dSave.addEventListener("click", function(){ saveMenu(); });
   var dRevert = $("btnDraftRevert");
   if (dRevert) twoStep(dRevert, "חזרה לגרסה השמורה", "לוותר על השינויים?", cbarRevertDraft);
+  var copyBtn = $("cbarCopyLink");
+  if (copyBtn) copyBtn.addEventListener("click", cbarCopyLink);
   syncTopbarHeight();
 })();
 
@@ -5223,6 +5311,7 @@ function createClient(){
     id: "cl-" + Date.now(),
     name: name,
     sex: "",
+    phone: "",
     /* 24.8.2026 (בקשת סיוון): לקוח/ה חדש/ה — השאלון נפתח מיד למילוי בפורטל,
        ומופיע אצלה בבית ברגע שהקישור מתפרסם */
     intakeRequested: true,
@@ -5988,6 +6077,26 @@ function saveSubscription(){
   toast("המנוי נשמר");
 }
 
+/* ---------- טלפון לוואטסאפ ישיר (שלב 3 UX, 29.8.2026) ----------
+   שדה חופשי לגמרי — נשמר כמו שהוקלד; הנרמול (normalizePhoneIL) קורה רק
+   כש-whatsShareHref בונה את קישור הוואטסאפ, לא כאן */
+function fillPhoneField(c){
+  $("clientPhoneIn").value = (c && typeof c.phone === "string") ? c.phone : "";
+}
+
+function savePhone(){
+  var store = readClientsStore();
+  var c = getActiveClient(store);
+  if (!c) return;
+  var raw = ($("clientPhoneIn").value || "").trim();
+  $("clientPhoneIn").value = raw;
+  if (raw === (c.phone || "")) return;
+  c.phone = raw;
+  touchClient(c);
+  if (!writeClientsStore(store)) return;
+  toast("הטלפון נשמר");
+}
+
 /* הרינדור המלא של הטאב — נקרא מ-showTab("client") ומה-init */
 function renderClientTab(){
   flushIntake();
@@ -6008,6 +6117,7 @@ function renderClientTab(){
   $("clientNameInput").value = c.name;
   syncSexSeg(c.sex);
   fillSubscriptionFields(c);
+  fillPhoneField(c);
 
   if (!intakeBuilt){ buildIntakeFields(); intakeBuilt = true; }
   fillIntakeFields(c);
@@ -6086,6 +6196,7 @@ $("clientNameInput").addEventListener("change", function(){
 
 $("subStartIn").addEventListener("change", saveSubscription);
 $("subMonthsIn").addEventListener("change", saveSubscription);
+$("clientPhoneIn").addEventListener("change", savePhone);
 
 $("summaryEdit").addEventListener("input", function(){ queueSummaryEdit($("summaryEdit").value); });
 $("btnGenSummary").addEventListener("click", generateSummary);
@@ -6391,7 +6502,7 @@ function refreshShareCard(){
   if (wa){
     wa.classList.toggle("hidden", token === "");
     if (token !== ""){
-      wa.setAttribute("href", whatsShareHref(token));
+      wa.setAttribute("href", whatsShareHref(token, c));
     } else {
       wa.removeAttribute("href");
     }
